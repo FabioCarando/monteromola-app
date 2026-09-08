@@ -1,69 +1,264 @@
-import Image from "next/image";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
-export default function Home() {
+type OrderItem = {
+  quantity: number;
+};
+
+type Order = {
+  id: number;
+  total: number;
+  order_date: string;
+  order_items: OrderItem[];
+};
+
+async function getDashboardData() {
+  const now = new Date();
+
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  ).toISOString();
+
+  const startOfNextMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select(`
+      id,
+      total,
+      order_date,
+      order_items (
+        quantity
+      )
+    `)
+    .gte("order_date", startOfMonth)
+    .lt("order_date", startOfNextMonth);
+
+  if (error) {
+    console.error("Errore dashboard:", error);
+
+    return {
+      revenue: 0,
+      ordersCount: 0,
+      productsSold: 0,
+    };
+  }
+
+  const orders = (data || []) as Order[];
+
+  const revenue = orders.reduce((sum, order) => {
+    return sum + Number(order.total);
+  }, 0);
+
+  const ordersCount = orders.length;
+
+  const productsSold = orders.reduce((sum, order) => {
+    const orderQuantity = order.order_items.reduce(
+      (itemSum, item) => itemSum + item.quantity,
+      0
+    );
+
+    return sum + orderQuantity;
+  }, 0);
+
+  return {
+    revenue,
+    ordersCount,
+    productsSold,
+  };
+}
+
+export default async function Home() {
+  const {
+    revenue,
+    ordersCount,
+    productsSold,
+  } = await getDashboardData();
+
+  const wines = [
+    { name: "Onelia", stock: 0 },
+    { name: "Gea", stock: 0 },
+    { name: "Giulio", stock: 0 },
+  ];
+
+  const honey = [
+    { name: "Acacia", size: "250g", stock: 0 },
+    { name: "Acacia", size: "500g", stock: 0 },
+    { name: "Millefiori", size: "250g", stock: 0 },
+    { name: "Millefiori", size: "500g", stock: 0 },
+    { name: "Melata", size: "250g", stock: 0 },
+    { name: "Melata", size: "500g", stock: 0 },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-[#F7F3EA] text-[#27231F]">
+      <div className="mx-auto max-w-md px-5 py-8">
+
+        <header>
+          <p className="text-sm uppercase tracking-[0.25em] text-[#722F37]">
+            Tenuta Monteromola
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+          <h1 className="mt-3 text-4xl font-semibold">
+            Buongiorno, Elena
+          </h1>
+
+          <p className="mt-2 text-sm text-neutral-600">
+            Il tuo workspace per vendite, ordini e magazzino.
+          </p>
+        </header>
+
+        <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm">
+          <p className="text-sm text-neutral-500">
+            Vendite questo mese
+          </p>
+
+          <p className="mt-2 text-4xl font-semibold">
+            €{revenue.toFixed(2)}
+          </p>
+
+          <div className="mt-6 grid grid-cols-2 gap-3">
+
+            <div className="rounded-2xl bg-[#F7F3EA] p-4">
+              <p className="text-xs text-neutral-500">
+                Ordini
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold">
+                {ordersCount}
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-[#F7F3EA] p-4">
+              <p className="text-xs text-neutral-500">
+                Prodotti venduti
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold">
+                {productsSold}
+              </p>
+            </div>
+
+          </div>
+        </section>
+
+        <Link
+          href="/sales/new"
+          className="mt-6 block w-full rounded-2xl bg-[#722F37] px-5 py-4 text-center text-lg font-medium text-white shadow-sm transition hover:opacity-90"
+        >
+          + Nuova vendita
+        </Link>
+
+        <Link
+          href="/orders"
+          className="mt-3 block w-full rounded-2xl border border-[#722F37]/20 bg-white px-5 py-4 text-center font-medium text-[#722F37] shadow-sm"
+        >
+          Storico vendite
+        </Link>
+
+        <section className="mt-10">
+
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">
+              Magazzino
+            </h2>
+
+            <span className="text-sm text-neutral-500">
+              Disponibilità
+            </span>
+          </div>
+
+          <div className="mt-6">
+
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#722F37]">
+              Vino
+            </p>
+
+            <div className="space-y-3">
+
+              {wines.map((wine) => (
+                <div
+                  key={wine.name}
+                  className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {wine.name}
+                    </p>
+
+                    <p className="mt-1 text-xs text-neutral-400">
+                      Vino
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-lg font-semibold">
+                      {wine.stock}
+                    </p>
+
+                    <p className="text-xs text-neutral-400">
+                      bottiglie
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          </div>
+
+          <div className="mt-8">
+
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#606C38]">
+              Miele
+            </p>
+
+            <div className="space-y-3">
+
+              {honey.map((item) => (
+                <div
+                  key={`${item.name}-${item.size}`}
+                  className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {item.name}
+                    </p>
+
+                    <p className="mt-1 text-xs text-neutral-400">
+                      {item.size}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-lg font-semibold">
+                      {item.stock}
+                    </p>
+
+                    <p className="text-xs text-neutral-400">
+                      vasetti
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          </div>
+
+        </section>
+
+        <footer className="pb-8 pt-12 text-center">
+          <p className="text-xs text-neutral-400">
+            Tenuta Monteromola
+          </p>
+        </footer>
+
+      </div>
+    </main>
   );
 }
