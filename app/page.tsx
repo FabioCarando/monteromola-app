@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import BottomNav from "@/components/BottomNav";
 
 type OrderItem = {
   quantity: number;
@@ -98,35 +99,36 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-[#F7F3EA] text-[#27231F]">
-      <div className="mx-auto max-w-md px-5 py-8">
+      <div className="mx-auto max-w-md px-5 pb-32 pt-8">
 
+        {/* HEADER */}
         <header>
-          <p className="text-sm uppercase tracking-[0.25em] text-[#722F37]">
+          <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#722F37]">
             Tenuta Monteromola
           </p>
 
-          <h1 className="mt-3 text-4xl font-semibold">
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight">
             Buongiorno, Elena
           </h1>
 
-          <p className="mt-2 text-sm text-neutral-600">
-            Il tuo workspace per vendite, ordini e magazzino.
+          <p className="mt-2 text-sm leading-6 text-neutral-500">
+            Vendite, ordini e magazzino in un unico posto.
           </p>
         </header>
 
-        <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-neutral-500">
+        {/* DASHBOARD PRINCIPALE */}
+        <section className="mt-8 overflow-hidden rounded-[32px] bg-[#722F37] p-6 text-white shadow-lg">
+          <p className="text-sm text-white/70">
             Vendite questo mese
           </p>
 
-          <p className="mt-2 text-4xl font-semibold">
+          <p className="mt-2 text-4xl font-semibold tracking-tight">
             €{revenue.toFixed(2)}
           </p>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
-
-            <div className="rounded-2xl bg-[#F7F3EA] p-4">
-              <p className="text-xs text-neutral-500">
+          <div className="mt-7 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <p className="text-xs text-white/60">
                 Ordini
               </p>
 
@@ -135,130 +137,134 @@ export default async function Home() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-[#F7F3EA] p-4">
-              <p className="text-xs text-neutral-500">
-                Prodotti venduti
+            <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <p className="text-xs text-white/60">
+                Prodotti
               </p>
 
               <p className="mt-1 text-2xl font-semibold">
                 {productsSold}
               </p>
             </div>
-
           </div>
         </section>
 
+        {/* CTA PRINCIPALE */}
         <Link
           href="/sales/new"
-          className="mt-6 block w-full rounded-2xl bg-[#722F37] px-5 py-4 text-center text-lg font-medium text-white shadow-sm transition hover:opacity-90"
+          className="mt-5 flex w-full items-center justify-center rounded-[22px] bg-[#27231F] px-5 py-4 text-base font-semibold text-white shadow-sm transition active:scale-[0.98]"
         >
-          + Nuova vendita
+          + Registra una vendita
         </Link>
 
+        {/* LINK STORICO */}
         <Link
           href="/orders"
-          className="mt-3 block w-full rounded-2xl border border-[#722F37]/20 bg-white px-5 py-4 text-center font-medium text-[#722F37] shadow-sm"
+          className="mt-3 flex w-full items-center justify-between rounded-[22px] bg-white px-5 py-4 font-medium shadow-sm transition active:scale-[0.98]"
         >
-          Storico vendite
+          <span>Storico vendite</span>
+
+          <span className="text-xl text-neutral-400">
+            →
+          </span>
         </Link>
 
+        {/* MAGAZZINO */}
         <section className="mt-10">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400">
+                Stock
+              </p>
 
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">
-              Magazzino
-            </h2>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                Magazzino
+              </h2>
+            </div>
 
-            <span className="text-sm text-neutral-500">
+            <span className="text-xs text-neutral-400">
               Disponibilità
             </span>
           </div>
 
+          {/* VINO */}
           <div className="mt-6">
-
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#722F37]">
               Vino
             </p>
 
-            <div className="space-y-3">
-
+            <div className="grid grid-cols-3 gap-3">
               {wines.map((wine) => (
                 <div
                   key={wine.name}
-                  className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm"
+                  className="rounded-[22px] bg-white p-4 shadow-sm"
                 >
-                  <div>
-                    <p className="font-medium">
-                      {wine.name}
-                    </p>
+                  <p className="text-sm font-semibold">
+                    {wine.name}
+                  </p>
 
-                    <p className="mt-1 text-xs text-neutral-400">
-                      Vino
-                    </p>
-                  </div>
+                  <p className="mt-5 text-2xl font-semibold tracking-tight">
+                    {wine.stock}
+                  </p>
 
-                  <div className="text-right">
-                    <p className="text-lg font-semibold">
-                      {wine.stock}
-                    </p>
-
-                    <p className="text-xs text-neutral-400">
-                      bottiglie
-                    </p>
-                  </div>
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    bottiglie
+                  </p>
                 </div>
               ))}
-
             </div>
           </div>
 
+          {/* MIELE */}
           <div className="mt-8">
-
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#606C38]">
               Miele
             </p>
 
-            <div className="space-y-3">
-
+            <div className="grid grid-cols-2 gap-3">
               {honey.map((item) => (
                 <div
                   key={`${item.name}-${item.size}`}
-                  className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm"
+                  className="rounded-[22px] bg-white p-4 shadow-sm"
                 >
-                  <div>
-                    <p className="font-medium">
-                      {item.name}
-                    </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {item.name}
+                      </p>
 
-                    <p className="mt-1 text-xs text-neutral-400">
-                      {item.size}
-                    </p>
+                      <p className="mt-1 text-xs text-neutral-400">
+                        {item.size}
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-[#606C38]/10 px-2 py-1 text-[10px] font-medium text-[#606C38]">
+                      Miele
+                    </span>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-lg font-semibold">
-                      {item.stock}
-                    </p>
+                  <p className="mt-5 text-2xl font-semibold tracking-tight">
+                    {item.stock}
+                  </p>
 
-                    <p className="text-xs text-neutral-400">
-                      vasetti
-                    </p>
-                  </div>
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    vasetti
+                  </p>
                 </div>
               ))}
-
             </div>
           </div>
-
         </section>
 
+        {/* FOOTER */}
         <footer className="pb-8 pt-12 text-center">
           <p className="text-xs text-neutral-400">
             Tenuta Monteromola
           </p>
         </footer>
-
       </div>
+
+      <BottomNav />
     </main>
   );
 }
