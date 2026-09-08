@@ -3,6 +3,9 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type OrderItem = {
   quantity: number;
 };
