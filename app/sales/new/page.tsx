@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Product = {
@@ -10,6 +11,7 @@ type Product = {
   variant?: string;
   category: "wine" | "honey";
   price: number;
+  image: string;
 };
 
 const products: Product[] = [
@@ -18,18 +20,21 @@ const products: Product[] = [
     name: "Onelia",
     category: "wine",
     price: 15,
+    image: "/onelia.png",
   },
   {
     id: "gea",
     name: "Gea",
     category: "wine",
     price: 12,
+    image: "/gea.png",
   },
   {
     id: "giulio",
     name: "Giulio",
     category: "wine",
     price: 18,
+    image: "/giulio.png",
   },
   {
     id: "acacia-250",
@@ -37,6 +42,7 @@ const products: Product[] = [
     variant: "250g",
     category: "honey",
     price: 6,
+    image: "/acacia.png",
   },
   {
     id: "acacia-500",
@@ -44,6 +50,7 @@ const products: Product[] = [
     variant: "500g",
     category: "honey",
     price: 11,
+    image: "/acacia.png",
   },
   {
     id: "millefiori-250",
@@ -51,6 +58,7 @@ const products: Product[] = [
     variant: "250g",
     category: "honey",
     price: 6,
+    image: "/millefiori.png",
   },
   {
     id: "millefiori-500",
@@ -58,6 +66,7 @@ const products: Product[] = [
     variant: "500g",
     category: "honey",
     price: 11,
+    image: "/millefiori.png",
   },
   {
     id: "melata-250",
@@ -65,6 +74,7 @@ const products: Product[] = [
     variant: "250g",
     category: "honey",
     price: 7,
+    image: "/melata.png",
   },
   {
     id: "melata-500",
@@ -72,21 +82,27 @@ const products: Product[] = [
     variant: "500g",
     category: "honey",
     price: 11,
+    image: "/melata.png",
   },
+];
+
+const paymentMethods = [
+  "Contanti",
+  "POS",
+  "Bonifico",
+  "Altro",
 ];
 
 export default function NewSalePage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [showDetails, setShowDetails] = useState(false);
 
   const [customer, setCustomer] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Contanti");
 
   const [boxQuantity, setBoxQuantity] = useState(0);
   const [boxCost, setBoxCost] = useState(0);
 
-  const [paymentMethod, setPaymentMethod] = useState("Contanti");
   const [paymentStatus, setPaymentStatus] = useState("Pagato");
-
   const [notes, setNotes] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -107,67 +123,24 @@ export default function NewSalePage() {
     }));
   };
 
-  const total = products.reduce((sum, product) => {
-    return sum + (quantities[product.id] || 0) * product.price;
-  }, 0);
-
-  const packagingTotal = boxQuantity * boxCost;
-  const grandTotal = total + packagingTotal;
-
   const selectedProducts = products.filter(
     (product) => (quantities[product.id] || 0) > 0
   );
 
-  const renderProduct = (product: Product) => {
-    const quantity = quantities[product.id] || 0;
+  const totalProducts = products.reduce(
+    (sum, product) =>
+      sum + (quantities[product.id] || 0) * product.price,
+    0
+  );
 
-    return (
-      <div
-        key={product.id}
-        className="rounded-3xl bg-white p-5 shadow-sm"
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-lg font-semibold">
-              {product.name}
-            </p>
+  const packagingTotal = boxQuantity * boxCost;
+  const grandTotal = totalProducts + packagingTotal;
 
-            {product.variant && (
-              <p className="mt-1 text-sm text-neutral-500">
-                {product.variant}
-              </p>
-            )}
-
-            <p className="mt-2 text-sm font-medium text-[#722F37]">
-              €{product.price.toFixed(2)}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => decrease(product.id)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F7F3EA] text-xl font-medium"
-            >
-              −
-            </button>
-
-            <span className="w-6 text-center text-lg font-semibold">
-              {quantity}
-            </span>
-
-            <button
-              type="button"
-              onClick={() => increase(product.id)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#722F37] text-xl font-medium text-white"
-            >
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const totalQuantity = selectedProducts.reduce(
+    (sum, product) =>
+      sum + (quantities[product.id] || 0),
+    0
+  );
 
   const saveSale = async () => {
     if (selectedProducts.length === 0) return;
@@ -177,17 +150,16 @@ export default function NewSalePage() {
       setSaved(false);
       setErrorMessage("");
 
-      // 1. CREA L'ORDINE
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
-          customer: customer || null,
+          customer: customer.trim() || null,
           total: grandTotal,
           payment_method: paymentMethod,
           payment_status: paymentStatus,
           box_quantity: boxQuantity,
           box_cost: boxCost,
-          notes: notes || null,
+          notes: notes.trim() || null,
         })
         .select()
         .single();
@@ -196,7 +168,6 @@ export default function NewSalePage() {
         throw orderError;
       }
 
-      // 2. CREA LE RIGHE DELL'ORDINE
       const items = selectedProducts.map((product) => ({
         order_id: order.id,
         product_id: product.id,
@@ -216,81 +187,140 @@ export default function NewSalePage() {
       }
 
       setSaved(true);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("SUPABASE ERROR:", error);
 
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Errore durante il salvataggio."
+        error?.message ||
+          error?.details ||
+          error?.hint ||
+          "Errore durante il salvataggio."
       );
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <main className="min-h-screen bg-[#F7F3EA] text-[#27231F]">
-      <div className="mx-auto max-w-md px-5 py-8 pb-40">
+  const renderProduct = (product: Product) => {
+    const quantity = quantities[product.id] || 0;
+    const selected = quantity > 0;
 
-        {/* HEADER */}
-        <header className="flex items-start justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-[#722F37]">
-              Tenuta Monteromola
-            </p>
+    return (
+      <div
+        key={product.id}
+        className={`rounded-[26px] border p-4 transition ${
+          selected
+            ? "border-[#722F37]/30 bg-white shadow-md"
+            : "border-transparent bg-white shadow-sm"
+        }`}
+      >
+        <div className="flex items-center gap-4">
 
-            <h1 className="mt-3 text-3xl font-semibold">
-              Nuova vendita
-            </h1>
-
-            <p className="mt-2 text-sm text-neutral-500">
-              Seleziona i prodotti venduti.
-            </p>
-          </div>
-
-          <Link
-            href="/"
-            className="rounded-full bg-white px-4 py-2 text-sm shadow-sm"
+          {/* IMAGE */}
+          <div
+            className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px] ${
+              product.category === "wine"
+                ? "bg-[#EFE9DE]"
+                : "bg-[#F0EBDD]"
+            }`}
           >
-            Chiudi
-          </Link>
-        </header>
+            <Image
+              src={product.image}
+              alt={`${product.name} ${product.variant || ""}`}
+              fill
+              className="object-contain p-1.5"
+            />
+          </div>
 
-        {/* VINO */}
-        <section className="mt-8">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[#722F37]">
-            Vino
+          {/* INFO */}
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">
+              {product.name}
+            </p>
+
+            <div className="mt-1 flex items-center gap-2">
+              {product.variant && (
+                <span className="text-xs text-neutral-400">
+                  {product.variant}
+                </span>
+              )}
+
+              <span
+                className={
+                  product.category === "wine"
+                    ? "text-sm font-semibold text-[#722F37]"
+                    : "text-sm font-semibold text-[#606C38]"
+                }
+              >
+                €{product.price.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* QUANTITY */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => decrease(product.id)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F7F3EA] text-xl font-medium active:scale-95"
+            >
+              −
+            </button>
+
+            <span className="w-6 text-center text-lg font-semibold">
+              {quantity}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => increase(product.id)}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#722F37] text-xl font-medium text-white shadow-sm active:scale-95"
+            >
+              +
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+  };
+
+  if (saved) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F7F3EA] px-5 text-[#27231F]">
+        <div className="w-full max-w-md text-center">
+
+          <div className="relative mx-auto h-20 w-20">
+            <Image
+              src="/logo-monteromola.png"
+              alt="Tenuta Monteromola"
+              fill
+              className="object-contain"
+            />
+          </div>
+
+          <div className="mx-auto mt-8 flex h-20 w-20 items-center justify-center rounded-full bg-[#606C38]/10 text-4xl text-[#606C38]">
+            ✓
+          </div>
+
+          <h1 className="mt-6 text-3xl font-semibold tracking-tight">
+            Vendita registrata
+          </h1>
+
+          <p className="mt-2 text-sm text-neutral-500">
+            La vendita è stata salvata correttamente.
           </p>
 
-          <div className="space-y-3">
-            {products
-              .filter((product) => product.category === "wine")
-              .map(renderProduct)}
-          </div>
-        </section>
-
-        {/* MIELE */}
-        <section className="mt-9">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[#606C38]">
-            Miele
+          <p className="mt-6 text-5xl font-semibold tracking-tight text-[#722F37]">
+            €{grandTotal.toFixed(2)}
           </p>
 
-          <div className="space-y-3">
-            {products
-              .filter((product) => product.category === "honey")
-              .map(renderProduct)}
-          </div>
-        </section>
-
-        {/* RIEPILOGO PRODOTTI */}
-        {selectedProducts.length > 0 && (
-          <section className="mt-9 rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm text-neutral-500">
+          <div className="mt-7 rounded-[28px] bg-white p-5 text-left shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
               Riepilogo
             </p>
 
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-3">
               {selectedProducts.map((product) => (
                 <div
                   key={product.id}
@@ -301,78 +331,269 @@ export default function NewSalePage() {
                     {product.variant ? ` ${product.variant}` : ""}
                   </span>
 
-                  <span>
+                  <span className="font-medium">
                     €
                     {(
-                      (quantities[product.id] || 0) * product.price
+                      (quantities[product.id] || 0) *
+                      product.price
                     ).toFixed(2)}
                   </span>
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          </div>
 
-        {/* DETTAGLI VENDITA */}
-        {showDetails && (
-          <section className="mt-9 rounded-3xl bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-semibold">
-              Dettagli vendita
-            </h2>
+          <Link
+            href="/sales/new"
+            className="mt-6 block w-full rounded-[22px] bg-[#722F37] px-5 py-4 font-semibold text-white"
+          >
+            Nuova vendita
+          </Link>
 
-            <div className="mt-5 space-y-5">
+          <Link
+            href="/"
+            className="mt-3 block w-full rounded-[22px] bg-white px-5 py-4 font-semibold shadow-sm"
+          >
+            Torna alla Home
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
-              {/* CLIENTE */}
-              <div>
-                <label className="mb-2 block text-sm text-neutral-500">
-                  Cliente
-                </label>
+  return (
+    <main className="min-h-screen bg-[#F7F3EA] text-[#27231F]">
+      <div className="mx-auto max-w-md px-5 pb-40 pt-7">
 
-                <input
-                  type="text"
-                  value={customer}
-                  onChange={(e) => setCustomer(e.target.value)}
-                  placeholder="Nome cliente (opzionale)"
-                  className="w-full rounded-2xl border border-black/10 bg-[#F7F3EA] px-4 py-3 outline-none"
+        {/* HEADER */}
+        <header>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+
+              <div className="relative h-14 w-14 overflow-hidden rounded-[18px] bg-white shadow-sm">
+                <Image
+                  src="/logo-monteromola.png"
+                  alt="Tenuta Monteromola"
+                  fill
+                  priority
+                  className="object-contain p-1.5"
                 />
               </div>
 
-              {/* SCATOLE */}
               <div>
-                <label className="mb-2 block text-sm text-neutral-500">
-                  Scatole
-                </label>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#722F37]">
+                  Tenuta Monteromola
+                </p>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setBoxQuantity((q) => Math.max(q - 1, 0))
-                    }
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F7F3EA] text-xl"
-                  >
-                    −
-                  </button>
-
-                  <span className="w-8 text-center text-lg font-semibold">
-                    {boxQuantity}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setBoxQuantity((q) => q + 1)}
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-[#722F37] text-xl text-white"
-                  >
-                    +
-                  </button>
-                </div>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+                  Nuova vendita
+                </h1>
               </div>
+            </div>
 
-              {/* COSTO SCATOLA */}
-              <div>
-                <label className="mb-2 block text-sm text-neutral-500">
-                  Costo scatola
-                </label>
+            <Link
+              href="/"
+              className="rounded-full bg-white px-4 py-2 text-sm font-medium shadow-sm active:scale-95"
+            >
+              Chiudi
+            </Link>
+          </div>
+
+          <p className="mt-5 text-sm leading-6 text-neutral-500">
+            Seleziona i prodotti e registra la vendita.
+          </p>
+        </header>
+
+        {/* CLIENTE */}
+        <section className="mt-7 rounded-[28px] bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#722F37]">
+                Cliente
+              </p>
+
+              <h2 className="mt-1 text-lg font-semibold">
+                Chi ha acquistato?
+              </h2>
+            </div>
+
+            <span className="text-xs text-neutral-400">
+              Opzionale
+            </span>
+          </div>
+
+          <input
+            type="text"
+            value={customer}
+            onChange={(e) => setCustomer(e.target.value)}
+            placeholder="Nome cliente"
+            className="mt-4 w-full rounded-[18px] border border-black/5 bg-[#F7F3EA] px-4 py-4 text-base outline-none transition focus:border-[#722F37]/30"
+          />
+        </section>
+
+        {/* VINI */}
+        <section className="mt-8">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#722F37]">
+                Prodotti
+              </p>
+
+              <h2 className="mt-1 text-2xl font-semibold">
+                Vino
+              </h2>
+            </div>
+
+            <span className="text-xs text-neutral-400">
+              3 etichette
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {products
+              .filter((product) => product.category === "wine")
+              .map(renderProduct)}
+          </div>
+        </section>
+
+        {/* MIELE */}
+        <section className="mt-9">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#606C38]">
+                Prodotti
+              </p>
+
+              <h2 className="mt-1 text-2xl font-semibold">
+                Miele
+              </h2>
+            </div>
+
+            <span className="text-xs text-neutral-400">
+              3 varietà
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {products
+              .filter((product) => product.category === "honey")
+              .map(renderProduct)}
+          </div>
+        </section>
+
+        {/* METODO DI PAGAMENTO */}
+        <section className="mt-9 rounded-[28px] bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#722F37]">
+            Pagamento
+          </p>
+
+          <h2 className="mt-1 text-lg font-semibold">
+            Metodo di pagamento
+          </h2>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {paymentMethods.map((method) => (
+              <button
+                key={method}
+                type="button"
+                onClick={() => setPaymentMethod(method)}
+                className={`rounded-[18px] px-4 py-3.5 text-sm font-semibold transition active:scale-[0.97] ${
+                  paymentMethod === method
+                    ? "bg-[#722F37] text-white shadow-sm"
+                    : "bg-[#F7F3EA] text-[#27231F]"
+                }`}
+              >
+                {method}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* STATO PAGAMENTO */}
+        <section className="mt-4 rounded-[28px] bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
+            Stato
+          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setPaymentStatus("Pagato")}
+              className={`rounded-[18px] px-4 py-3.5 text-sm font-semibold ${
+                paymentStatus === "Pagato"
+                  ? "bg-[#606C38] text-white"
+                  : "bg-[#F7F3EA]"
+              }`}
+            >
+              Pagato
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentStatus("Da pagare")}
+              className={`rounded-[18px] px-4 py-3.5 text-sm font-semibold ${
+                paymentStatus === "Da pagare"
+                  ? "bg-[#722F37] text-white"
+                  : "bg-[#F7F3EA]"
+              }`}
+            >
+              Da pagare
+            </button>
+          </div>
+        </section>
+
+        {/* SCATOLE */}
+        <section className="mt-4 rounded-[28px] bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
+                Packaging
+              </p>
+
+              <h2 className="mt-1 text-lg font-semibold">
+                Scatole
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setBoxQuantity((q) => Math.max(q - 1, 0))
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F7F3EA] text-xl"
+              >
+                −
+              </button>
+
+              <span className="w-6 text-center text-lg font-semibold">
+                {boxQuantity}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setBoxQuantity((q) => q + 1)
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#722F37] text-xl text-white"
+              >
+                +
+              </button>
+            </div>
+
+          </div>
+
+          {boxQuantity > 0 && (
+            <div className="mt-4">
+              <label className="text-xs text-neutral-400">
+                Costo per scatola
+              </label>
+
+              <div className="mt-2 flex items-center rounded-[18px] bg-[#F7F3EA] px-4">
+                <span className="text-neutral-400">
+                  €
+                </span>
 
                 <input
                   type="number"
@@ -382,172 +603,139 @@ export default function NewSalePage() {
                   onChange={(e) =>
                     setBoxCost(Number(e.target.value))
                   }
-                  className="w-full rounded-2xl border border-black/10 bg-[#F7F3EA] px-4 py-3 outline-none"
+                  className="w-full bg-transparent px-2 py-4 outline-none"
                 />
               </div>
+            </div>
+          )}
+        </section>
 
-              {/* METODO PAGAMENTO */}
+        {/* NOTE */}
+        <section className="mt-4 rounded-[28px] bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">
+            Note
+          </p>
+
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Aggiungi una nota..."
+            rows={3}
+            className="mt-3 w-full resize-none rounded-[18px] bg-[#F7F3EA] px-4 py-4 outline-none"
+          />
+        </section>
+
+        {/* RIEPILOGO */}
+        {selectedProducts.length > 0 && (
+          <section className="mt-8 rounded-[30px] bg-[#27231F] p-6 text-white shadow-lg">
+            <div className="flex items-start justify-between">
               <div>
-                <label className="mb-2 block text-sm text-neutral-500">
-                  Metodo di pagamento
-                </label>
+                <p className="text-xs uppercase tracking-[0.18em] text-white/50">
+                  Riepilogo
+                </p>
 
-                <select
-                  value={paymentMethod}
-                  onChange={(e) =>
-                    setPaymentMethod(e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-black/10 bg-[#F7F3EA] px-4 py-3 outline-none"
+                <p className="mt-1 text-lg font-semibold">
+                  {totalQuantity} prodotti
+                </p>
+              </div>
+
+              <p className="text-3xl font-semibold tracking-tight">
+                €{grandTotal.toFixed(2)}
+              </p>
+            </div>
+
+            <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
+              {selectedProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="flex justify-between text-sm"
                 >
-                  <option>Contanti</option>
-                  <option>Bonifico</option>
-                  <option>Carta</option>
-                  <option>Altro</option>
-                </select>
+                  <span className="text-white/75">
+                    {quantities[product.id]} × {product.name}
+                    {product.variant
+                      ? ` ${product.variant}`
+                      : ""}
+                  </span>
+
+                  <span>
+                    €
+                    {(
+                      (quantities[product.id] || 0) *
+                      product.price
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <div className="flex justify-between text-xs text-white/50">
+                <span>
+                  Cliente
+                </span>
+
+                <span>
+                  {customer || "Vendita diretta"}
+                </span>
               </div>
 
-              {/* STATO PAGAMENTO */}
-              <div>
-                <label className="mb-2 block text-sm text-neutral-500">
-                  Stato pagamento
-                </label>
+              <div className="mt-2 flex justify-between text-xs text-white/50">
+                <span>
+                  Pagamento
+                </span>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentStatus("Pagato")}
-                    className={`rounded-2xl px-4 py-3 ${
-                      paymentStatus === "Pagato"
-                        ? "bg-[#722F37] text-white"
-                        : "bg-[#F7F3EA]"
-                    }`}
-                  >
-                    Pagato
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPaymentStatus("Da pagare")
-                    }
-                    className={`rounded-2xl px-4 py-3 ${
-                      paymentStatus === "Da pagare"
-                        ? "bg-[#722F37] text-white"
-                        : "bg-[#F7F3EA]"
-                    }`}
-                  >
-                    Da pagare
-                  </button>
-                </div>
-              </div>
-
-              {/* NOTE */}
-              <div>
-                <label className="mb-2 block text-sm text-neutral-500">
-                  Note
-                </label>
-
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Note opzionali"
-                  rows={3}
-                  className="w-full resize-none rounded-2xl border border-black/10 bg-[#F7F3EA] px-4 py-3 outline-none"
-                />
-              </div>
-
-              {/* TOTALI */}
-              <div className="border-t border-black/5 pt-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">
-                    Prodotti
-                  </span>
-
-                  <span>
-                    €{total.toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex justify-between text-sm">
-                  <span className="text-neutral-500">
-                    Scatole
-                  </span>
-
-                  <span>
-                    €{packagingTotal.toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex justify-between text-lg font-semibold">
-                  <span>
-                    Totale
-                  </span>
-
-                  <span>
-                    €{grandTotal.toFixed(2)}
-                  </span>
-                </div>
+                <span>
+                  {paymentMethod}
+                </span>
               </div>
             </div>
           </section>
         )}
 
-        {/* BARRA FISSA IN BASSO */}
-        <div className="fixed bottom-0 left-0 right-0 border-t border-black/5 bg-[#F7F3EA]/95 p-4 backdrop-blur">
-          <div className="mx-auto max-w-md">
+        {errorMessage && (
+          <p className="mt-5 text-center text-sm font-medium text-red-600">
+            {errorMessage}
+          </p>
+        )}
+      </div>
 
-            <div className="mb-3 flex items-center justify-between px-1">
-              <span className="text-sm text-neutral-500">
-                Totale
-              </span>
+      {/* BOTTOM ACTION */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/5 bg-[#F7F3EA]/95 p-4 pb-[calc(env(safe-area-inset-bottom)+12px)] backdrop-blur-xl">
+        <div className="mx-auto max-w-md">
+          <div className="mb-3 flex items-end justify-between px-1">
+            <div>
+              <p className="text-xs text-neutral-400">
+                Totale vendita
+              </p>
 
-              <span className="text-2xl font-semibold">
+              <p className="text-2xl font-semibold tracking-tight">
                 €{grandTotal.toFixed(2)}
-              </span>
+              </p>
             </div>
 
-            {!showDetails ? (
-              <button
-                type="button"
-                disabled={selectedProducts.length === 0}
-                onClick={() => setShowDetails(true)}
-                className="w-full rounded-2xl bg-[#722F37] px-5 py-4 text-lg font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                Continua
-              </button>
-            ) : (
-              <>
-                {errorMessage && (
-                  <p className="mb-3 text-center text-sm text-red-600">
-                    {errorMessage}
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={saveSale}
-                  disabled={saving || saved}
-                  className="w-full rounded-2xl bg-[#722F37] px-5 py-4 text-lg font-medium text-white shadow-sm disabled:opacity-50"
-                >
-                  {saving
-                    ? "Salvataggio..."
-                    : saved
-                      ? "Vendita registrata ✓"
-                      : "Registra vendita"}
-                </button>
-
-                {saved && (
-                  <p className="mt-2 text-center text-sm font-medium text-[#606C38]">
-                    Vendita salvata correttamente.
-                  </p>
-                )}
-              </>
+            {totalQuantity > 0 && (
+              <span className="rounded-full bg-[#722F37]/10 px-3 py-1 text-xs font-semibold text-[#722F37]">
+                {totalQuantity} prodotti
+              </span>
             )}
-
           </div>
-        </div>
 
+          <button
+            type="button"
+            onClick={saveSale}
+            disabled={
+              saving ||
+              selectedProducts.length === 0
+            }
+            className="w-full rounded-[22px] bg-[#722F37] px-5 py-4 text-base font-semibold text-white shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            {saving
+              ? "Salvataggio..."
+              : "Registra vendita"}
+          </button>
+        </div>
       </div>
+
     </main>
   );
 }
