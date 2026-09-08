@@ -1,81 +1,117 @@
+import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 
 type OrderItem = {
-  id: number;
-  product_name: string;
-  variant: string | null;
   quantity: number;
-  unit_price: number;
 };
 
 type Order = {
   id: number;
-  order_date: string;
-  customer: string | null;
   total: number;
-  payment_method: string | null;
-  payment_status: string | null;
-  box_quantity: number;
-  box_cost: number;
-  notes: string | null;
+  order_date: string;
   order_items: OrderItem[];
 };
 
-async function getOrders(): Promise<Order[]> {
+async function getDashboardData() {
+  const now = new Date();
+
+  const startOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  ).toISOString();
+
+  const startOfNextMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1
+  ).toISOString();
+
   const { data, error } = await supabase
     .from("orders")
     .select(`
       id,
-      order_date,
-      customer,
       total,
-      payment_method,
-      payment_status,
-      box_quantity,
-      box_cost,
-      notes,
+      order_date,
       order_items (
-        id,
-        product_name,
-        variant,
-        quantity,
-        unit_price
+        quantity
       )
     `)
-    .order("order_date", { ascending: false });
+    .gte("order_date", startOfMonth)
+    .lt("order_date", startOfNextMonth);
 
   if (error) {
-    console.error("Errore caricamento ordini:", error);
-    return [];
+    console.error("Errore dashboard:", error);
+
+    return {
+      revenue: 0,
+      ordersCount: 0,
+      productsSold: 0,
+    };
   }
 
-  return (data || []) as Order[];
+  const orders = (data || []) as Order[];
+
+  const revenue = orders.reduce((sum, order) => {
+    return sum + Number(order.total);
+  }, 0);
+
+  const ordersCount = orders.length;
+
+  const productsSold = orders.reduce((sum, order) => {
+    const orderQuantity = order.order_items.reduce(
+      (itemSum, item) => itemSum + item.quantity,
+      0
+    );
+
+    return sum + orderQuantity;
+  }, 0);
+
+  return {
+    revenue,
+    ordersCount,
+    productsSold,
+  };
 }
 
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat("it-IT", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(date));
-}
+export default async function Home() {
+  const {
+    revenue,
+    ordersCount,
+    productsSold,
+  } = await getDashboardData();
 
-function formatTime(date: string) {
-  return new Intl.DateTimeFormat("it-IT", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
-}
+  const wines = [
+    {
+      name: "Onelia",
+      price: 15,
+      stock: 0,
+      image: "/onelia.png",
+    },
+    {
+      name: "Gea",
+      price: 12,
+      stock: 0,
+      image: "/gea.png",
+    },
+    {
+      name: "Giulio",
+      price: 18,
+      stock: 0,
+      image: "/giulio.png",
+    },
+  ];
 
-export default async function OrdersPage() {
-  const orders = await getOrders();
-
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.total),
-    0
-  );
+  const honey = [
+    { name: "Acacia", size: "250g", stock: 0 },
+    { name: "Acacia", size: "500g", stock: 0 },
+    { name: "Millefiori", size: "250g", stock: 0 },
+    { name: "Millefiori", size: "500g", stock: 0 },
+    { name: "Melata", size: "250g", stock: 0 },
+    { name: "Melata", size: "500g", stock: 0 },
+  ];
 
   return (
     <main className="min-h-screen bg-[#F7F3EA] text-[#27231F]">
@@ -83,222 +119,220 @@ export default async function OrdersPage() {
 
         {/* HEADER */}
         <header>
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#722F37]">
-            Tenuta Monteromola
+          <div className="flex items-center gap-4">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm">
+              <Image
+                src="/logo-monteromola.png"
+                alt="Tenuta Monteromola"
+                fill
+                priority
+                className="object-contain p-2"
+              />
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#722F37]">
+                Tenuta Monteromola
+              </p>
+
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+                Buongiorno, Elena
+              </h1>
+            </div>
+          </div>
+
+          <p className="mt-4 text-sm leading-6 text-neutral-500">
+            Vendite, ordini e magazzino in un unico posto.
+          </p>
+        </header>
+
+        {/* DASHBOARD */}
+        <section className="mt-8 overflow-hidden rounded-[32px] bg-[#722F37] p-6 text-white shadow-lg">
+          <p className="text-sm text-white/70">
+            Vendite questo mese
           </p>
 
-          <div className="mt-3 flex items-end justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Storico vendite
-              </h1>
+          <p className="mt-2 text-4xl font-semibold tracking-tight">
+            €{revenue.toFixed(2)}
+          </p>
 
-              <p className="mt-2 text-sm text-neutral-500">
-                Tutti gli ordini registrati.
+          <div className="mt-7 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <p className="text-xs text-white/60">
+                Ordini
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold">
+                {ordersCount}
               </p>
             </div>
 
-            <Link
-              href="/"
-              className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-medium shadow-sm active:scale-[0.97]"
-            >
-              Home
-            </Link>
+            <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+              <p className="text-xs text-white/60">
+                Prodotti
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold">
+                {productsSold}
+              </p>
+            </div>
           </div>
-        </header>
+        </section>
 
-        {/* SUMMARY */}
-        {orders.length > 0 && (
-          <section className="mt-7 rounded-[28px] bg-[#722F37] p-5 text-white shadow-lg">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/60">
-              Totale storico
+        {/* NUOVA VENDITA */}
+        <Link
+          href="/sales/new"
+          className="mt-5 flex w-full items-center justify-center rounded-[22px] bg-[#27231F] px-5 py-4 text-base font-semibold text-white shadow-sm transition active:scale-[0.98]"
+        >
+          + Registra una vendita
+        </Link>
+
+        {/* STORICO */}
+        <Link
+          href="/orders"
+          className="mt-3 flex w-full items-center justify-between rounded-[22px] bg-white px-5 py-4 font-medium shadow-sm transition active:scale-[0.98]"
+        >
+          <span>Storico vendite</span>
+
+          <span className="text-xl text-neutral-400">
+            →
+          </span>
+        </Link>
+
+        {/* I NOSTRI VINI */}
+        <section className="mt-10">
+          <div className="mb-4">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#722F37]">
+              Tenuta Monteromola
             </p>
 
-            <p className="mt-2 text-3xl font-semibold tracking-tight">
-              €{totalRevenue.toFixed(2)}
-            </p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+              I nostri vini
+            </h2>
+          </div>
 
-            <div className="mt-5 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-white/60">
-                  Ordini registrati
-                </p>
-
-                <p className="mt-1 text-xl font-semibold">
-                  {orders.length}
-                </p>
-              </div>
-
-              <Link
-                href="/sales/new"
-                className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-medium backdrop-blur active:scale-[0.97]"
+          <div className="grid grid-cols-3 gap-3">
+            {wines.map((wine) => (
+              <div
+                key={wine.name}
+                className="overflow-hidden rounded-[24px] bg-white shadow-sm"
               >
-                + Nuova vendita
-              </Link>
-            </div>
-          </section>
-        )}
+                <div className="relative aspect-[3/4] bg-[#EFE9DE]">
+                  <Image
+                    src={wine.image}
+                    alt={wine.name}
+                    fill
+                    className="object-contain p-3"
+                  />
+                </div>
 
-        {/* NESSUN ORDINE */}
-        {orders.length === 0 ? (
-          <section className="mt-8 rounded-[28px] bg-white p-7 text-center shadow-sm">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#722F37]/10 text-2xl text-[#722F37]">
-              +
-            </div>
+                <div className="p-3">
+                  <p className="text-sm font-semibold">
+                    {wine.name}
+                  </p>
 
-            <p className="mt-4 text-lg font-semibold">
-              Nessuna vendita
-            </p>
+                  <p className="mt-1 text-xs font-medium text-[#722F37]">
+                    €{wine.price}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-            <p className="mt-2 text-sm leading-6 text-neutral-500">
-              Le vendite registrate compariranno qui.
-            </p>
+        {/* MAGAZZINO */}
+        <section className="mt-10">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400">
+                Stock
+              </p>
 
-            <Link
-              href="/sales/new"
-              className="mt-5 block w-full rounded-2xl bg-[#722F37] px-5 py-4 text-center font-semibold text-white active:scale-[0.98]"
-            >
-              Registra la prima vendita
-            </Link>
-          </section>
-        ) : (
-          <section className="mt-8">
-
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
-                Vendite
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                Magazzino
               </h2>
-
-              <span className="text-xs text-neutral-400">
-                Più recenti
-              </span>
             </div>
 
-            <div className="space-y-4">
+            <span className="text-xs text-neutral-400">
+              Disponibilità
+            </span>
+          </div>
 
-              {orders.map((order) => (
-                <article
-                  key={order.id}
-                  className="rounded-[28px] bg-white p-5 shadow-sm"
+          {/* VINO */}
+          <div className="mt-6">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#722F37]">
+              Vino
+            </p>
+
+            <div className="grid grid-cols-3 gap-3">
+              {wines.map((wine) => (
+                <div
+                  key={wine.name}
+                  className="rounded-[22px] bg-white p-4 shadow-sm"
                 >
-                  {/* TOP */}
-                  <div className="flex items-start justify-between gap-4">
+                  <p className="text-sm font-semibold">
+                    {wine.name}
+                  </p>
+
+                  <p className="mt-5 text-2xl font-semibold tracking-tight">
+                    {wine.stock}
+                  </p>
+
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    bottiglie
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* MIELE */}
+          <div className="mt-8">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#606C38]">
+              Miele
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              {honey.map((item) => (
+                <div
+                  key={`${item.name}-${item.size}`}
+                  className="rounded-[22px] bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-base font-semibold">
-                        {order.customer || "Vendita diretta"}
+                      <p className="text-sm font-semibold">
+                        {item.name}
                       </p>
 
-                      <p className="mt-1 text-xs text-neutral-500">
-                        {formatDate(order.order_date)}
-                        {" · "}
-                        {formatTime(order.order_date)}
+                      <p className="mt-1 text-xs text-neutral-400">
+                        {item.size}
                       </p>
-
-                      {order.payment_method && (
-                        <p className="mt-1 text-xs text-neutral-400">
-                          {order.payment_method}
-                        </p>
-                      )}
                     </div>
 
-                    <span
-                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
-                        order.payment_status === "Pagato"
-                          ? "bg-[#606C38]/10 text-[#606C38]"
-                          : "bg-[#722F37]/10 text-[#722F37]"
-                      }`}
-                    >
-                      {order.payment_status || "—"}
+                    <span className="rounded-full bg-[#606C38]/10 px-2 py-1 text-[10px] font-medium text-[#606C38]">
+                      Miele
                     </span>
                   </div>
 
-                  {/* PRODOTTI */}
-                  <div className="mt-5 space-y-3">
+                  <p className="mt-5 text-2xl font-semibold tracking-tight">
+                    {item.stock}
+                  </p>
 
-                    {order.order_items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-4 text-sm"
-                      >
-                        <span>
-                          <span className="font-medium">
-                            {item.quantity} ×
-                          </span>{" "}
-                          {item.product_name}
-                          {item.variant
-                            ? ` ${item.variant}`
-                            : ""}
-                        </span>
-
-                        <span className="shrink-0 text-neutral-500">
-                          €
-                          {(
-                            item.quantity * item.unit_price
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-
-                    {order.box_quantity > 0 && (
-                      <div className="flex items-center justify-between gap-4 text-sm">
-                        <span className="text-neutral-500">
-                          {order.box_quantity} × scatola
-                        </span>
-
-                        <span className="shrink-0 text-neutral-500">
-                          €
-                          {(
-                            order.box_quantity *
-                            order.box_cost
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-
-                  </div>
-
-                  {/* TOTALE */}
-                  <div className="mt-5 border-t border-black/5 pt-4">
-                    <div className="flex items-end justify-between">
-                      <span className="text-sm text-neutral-500">
-                        Totale
-                      </span>
-
-                      <span className="text-2xl font-semibold tracking-tight">
-                        €{Number(order.total).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* NOTE */}
-                  {order.notes && (
-                    <div className="mt-4 rounded-2xl bg-[#F7F3EA] p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-                        Note
-                      </p>
-
-                      <p className="mt-2 text-sm leading-5">
-                        {order.notes}
-                      </p>
-                    </div>
-                  )}
-                </article>
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    vasetti
+                  </p>
+                </div>
               ))}
-
             </div>
-          </section>
-        )}
+          </div>
+        </section>
 
-        {/* CTA FINALE */}
-        {orders.length > 0 && (
-          <Link
-            href="/sales/new"
-            className="mt-8 block w-full rounded-[22px] bg-[#27231F] px-5 py-4 text-center font-semibold text-white shadow-sm active:scale-[0.98]"
-          >
-            + Registra una vendita
-          </Link>
-        )}
-
+        {/* FOOTER */}
+        <footer className="pb-8 pt-12 text-center">
+          <p className="text-xs text-neutral-400">
+            Tenuta Monteromola
+          </p>
+        </footer>
       </div>
 
       <BottomNav />
