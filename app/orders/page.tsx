@@ -54,9 +54,10 @@ async function getDashboardData() {
 
   const orders = (data || []) as Order[];
 
-  const revenue = orders.reduce((sum, order) => {
-    return sum + Number(order.total);
-  }, 0);
+  const revenue = orders.reduce(
+    (sum, order) => sum + Number(order.total),
+    0
+  );
 
   const ordersCount = orders.length;
 
@@ -105,22 +106,58 @@ export default async function Home() {
   ];
 
   const honey = [
-    { name: "Acacia", size: "250g", stock: 0 },
-    { name: "Acacia", size: "500g", stock: 0 },
-    { name: "Millefiori", size: "250g", stock: 0 },
-    { name: "Millefiori", size: "500g", stock: 0 },
-    { name: "Melata", size: "250g", stock: 0 },
-    { name: "Melata", size: "500g", stock: 0 },
+    {
+      name: "Acacia",
+      size: "250g",
+      price: 6,
+      stock: 0,
+      image: "/acacia.png",
+    },
+    {
+      name: "Acacia",
+      size: "500g",
+      price: 11,
+      stock: 0,
+      image: "/acacia.png",
+    },
+    {
+      name: "Millefiori",
+      size: "250g",
+      price: 6,
+      stock: 0,
+      image: "/millefiori.png",
+    },
+    {
+      name: "Millefiori",
+      size: "500g",
+      price: 11,
+      stock: 0,
+      image: "/millefiori.png",
+    },
+    {
+      name: "Melata",
+      size: "250g",
+      price: 7,
+      stock: 0,
+      image: "/melata.png",
+    },
+    {
+      name: "Melata",
+      size: "500g",
+      price: 11,
+      stock: 0,
+      image: "/melata.png",
+    },
   ];
 
   return (
     <main className="min-h-screen bg-[#F7F3EA] text-[#27231F]">
-      <div className="mx-auto max-w-md px-5 pb-32 pt-8">
+      <div className="mx-auto max-w-md px-5 pb-32 pt-7">
 
-        {/* HEADER */}
+        {/* HEADER + LOGO */}
         <header>
           <div className="flex items-center gap-4">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[22px] bg-white shadow-sm">
               <Image
                 src="/logo-monteromola.png"
                 alt="Tenuta Monteromola"
@@ -131,7 +168,7 @@ export default async function Home() {
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#722F37]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#722F37]">
                 Tenuta Monteromola
               </p>
 
@@ -147,7 +184,7 @@ export default async function Home() {
         </header>
 
         {/* DASHBOARD */}
-        <section className="mt-8 overflow-hidden rounded-[32px] bg-[#722F37] p-6 text-white shadow-lg">
+        <section className="mt-7 overflow-hidden rounded-[32px] bg-[#722F37] p-6 text-white shadow-lg">
           <p className="text-sm text-white/70">
             Vendite questo mese
           </p>
@@ -157,7 +194,7 @@ export default async function Home() {
           </p>
 
           <div className="mt-7 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+            <div className="rounded-2xl bg-white/10 p-4">
               <p className="text-xs text-white/60">
                 Ordini
               </p>
@@ -167,9 +204,9 @@ export default async function Home() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+            <div className="rounded-2xl bg-white/10 p-4">
               <p className="text-xs text-white/60">
-                Prodotti
+                Prodotti venduti
               </p>
 
               <p className="mt-1 text-2xl font-semibold">
@@ -182,7 +219,7 @@ export default async function Home() {
         {/* NUOVA VENDITA */}
         <Link
           href="/sales/new"
-          className="mt-5 flex w-full items-center justify-center rounded-[22px] bg-[#27231F] px-5 py-4 text-base font-semibold text-white shadow-sm transition active:scale-[0.98]"
+          className="mt-5 flex w-full items-center justify-center rounded-[22px] bg-[#27231F] px-5 py-4 text-base font-semibold text-white shadow-sm active:scale-[0.98]"
         >
           + Registra una vendita
         </Link>
@@ -190,7 +227,7 @@ export default async function Home() {
         {/* STORICO */}
         <Link
           href="/orders"
-          className="mt-3 flex w-full items-center justify-between rounded-[22px] bg-white px-5 py-4 font-medium shadow-sm transition active:scale-[0.98]"
+          className="mt-3 flex w-full items-center justify-between rounded-[22px] bg-white px-5 py-4 font-medium shadow-sm active:scale-[0.98]"
         >
           <span>Storico vendite</span>
 
@@ -199,44 +236,112 @@ export default async function Home() {
           </span>
         </Link>
 
-        {/* I NOSTRI VINI */}
+        {/* PRODOTTI */}
         <section className="mt-10">
-          <div className="mb-4">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#722F37]">
-              Tenuta Monteromola
-            </p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#722F37]">
+            Tenuta Monteromola
+          </p>
 
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-              I nostri vini
-            </h2>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+            I nostri prodotti
+          </h2>
+
+          {/* VINI */}
+          <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-semibold">
+                Vini
+              </h3>
+
+              <span className="text-xs text-neutral-400">
+                3 etichette
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {wines.map((wine) => (
+                <div
+                  key={wine.name}
+                  className="overflow-hidden rounded-[24px] bg-white shadow-sm"
+                >
+                  <div className="relative aspect-[3/4] bg-[#EFE9DE]">
+                    <Image
+                      src={wine.image}
+                      alt={wine.name}
+                      fill
+                      className="object-contain p-2"
+                    />
+                  </div>
+
+                  <div className="p-3">
+                    <p className="text-sm font-semibold">
+                      {wine.name}
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-[#722F37]">
+                      €{wine.price}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            {wines.map((wine) => (
-              <div
-                key={wine.name}
-                className="overflow-hidden rounded-[24px] bg-white shadow-sm"
-              >
-                <div className="relative aspect-[3/4] bg-[#EFE9DE]">
-                  <Image
-                    src={wine.image}
-                    alt={wine.name}
-                    fill
-                    className="object-contain p-3"
-                  />
-                </div>
+          {/* MIELE */}
+          <div className="mt-8">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-semibold">
+                Miele
+              </h3>
 
-                <div className="p-3">
-                  <p className="text-sm font-semibold">
-                    {wine.name}
-                  </p>
+              <span className="text-xs text-neutral-400">
+                3 varietà
+              </span>
+            </div>
 
-                  <p className="mt-1 text-xs font-medium text-[#722F37]">
-                    €{wine.price}
-                  </p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                {
+                  name: "Acacia",
+                  image: "/acacia.png",
+                  fromPrice: 6,
+                },
+                {
+                  name: "Millefiori",
+                  image: "/millefiori.png",
+                  fromPrice: 6,
+                },
+                {
+                  name: "Melata",
+                  image: "/melata.png",
+                  fromPrice: 7,
+                },
+              ].map((item) => (
+                <div
+                  key={item.name}
+                  className="overflow-hidden rounded-[24px] bg-white shadow-sm"
+                >
+                  <div className="relative aspect-square bg-[#F0EBDD]">
+                    <Image
+                      src={item.image}
+                      alt={`Miele ${item.name}`}
+                      fill
+                      className="object-contain p-2"
+                    />
+                  </div>
+
+                  <div className="p-3">
+                    <p className="text-sm font-semibold">
+                      {item.name}
+                    </p>
+
+                    <p className="mt-1 text-xs font-medium text-[#606C38]">
+                      da €{item.fromPrice}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
@@ -258,7 +363,7 @@ export default async function Home() {
             </span>
           </div>
 
-          {/* VINO */}
+          {/* STOCK VINO */}
           <div className="mt-6">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#722F37]">
               Vino
@@ -274,7 +379,7 @@ export default async function Home() {
                     {wine.name}
                   </p>
 
-                  <p className="mt-5 text-2xl font-semibold tracking-tight">
+                  <p className="mt-5 text-2xl font-semibold">
                     {wine.stock}
                   </p>
 
@@ -286,7 +391,7 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* MIELE */}
+          {/* STOCK MIELE */}
           <div className="mt-8">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#606C38]">
               Miele
@@ -298,23 +403,28 @@ export default async function Home() {
                   key={`${item.name}-${item.size}`}
                   className="rounded-[22px] bg-white p-4 shadow-sm"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#F0EBDD]">
+                      <Image
+                        src={item.image}
+                        alt={`${item.name} ${item.size}`}
+                        fill
+                        className="object-contain p-1"
+                      />
+                    </div>
+
                     <div>
                       <p className="text-sm font-semibold">
                         {item.name}
                       </p>
 
-                      <p className="mt-1 text-xs text-neutral-400">
+                      <p className="text-xs text-neutral-400">
                         {item.size}
                       </p>
                     </div>
-
-                    <span className="rounded-full bg-[#606C38]/10 px-2 py-1 text-[10px] font-medium text-[#606C38]">
-                      Miele
-                    </span>
                   </div>
 
-                  <p className="mt-5 text-2xl font-semibold tracking-tight">
+                  <p className="mt-4 text-2xl font-semibold">
                     {item.stock}
                   </p>
 
@@ -327,9 +437,16 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* FOOTER */}
         <footer className="pb-8 pt-12 text-center">
-          <p className="text-xs text-neutral-400">
+          <Image
+            src="/logo-monteromola.png"
+            alt="Tenuta Monteromola"
+            width={50}
+            height={50}
+            className="mx-auto object-contain opacity-60"
+          />
+
+          <p className="mt-2 text-xs text-neutral-400">
             Tenuta Monteromola
           </p>
         </footer>
