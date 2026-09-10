@@ -275,7 +275,7 @@ export default async function HomePage() {
 
       <section className="mx-5 mt-7">
 
-        <div className="relative min-h-[410px] overflow-hidden rounded-[36px] bg-[#4D1723] shadow-[0_28px_70px_rgba(73,29,39,0.22)]">
+        <div className="relative min-h-[420px] overflow-hidden rounded-[36px] bg-[#4D1723] shadow-[0_28px_70px_rgba(73,29,39,0.22)]">
 
           <Image
             src="/uva1.png"
@@ -286,58 +286,13 @@ export default async function HomePage() {
           />
 
           {/* OVERLAY */}
-          <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(24,16,15,0.78)_0%,rgba(34,22,20,0.48)_45%,rgba(34,22,20,0.08)_78%)]" />
+          <div className="absolute inset-0 z-[1] bg-[linear-gradient(100deg,rgba(24,16,15,0.82)_0%,rgba(34,22,20,0.55)_48%,rgba(34,22,20,0.12)_80%)]" />
 
           {/* GLOW */}
-          <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
-
-          {/* CONTENT */}
-          <div className="absolute inset-0 flex flex-col justify-between p-6">
-
-            <div>
-
-              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 backdrop-blur-xl">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-white/70">
-                  Tenuta Monteromola
-                </p>
-              </div>
-
-              <h2 className="monteromola-serif mt-5 max-w-[260px] text-[43px] leading-[0.95] tracking-[-0.03em] text-white">
-                Gesti antichi
-                <br />
-                sapori veri.
-              </h2>
-
-              <p className="mt-5 max-w-[220px] text-sm leading-6 text-white/60">
-                Una piccola tenuta, prodotti veri e una storia da raccontare.
-              </p>
-
-            </div>
-
-            <div className="flex items-end justify-between">
-
-              <Link
-                href="/sales/new"
-                className="flex items-center gap-3 rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#5F2030] shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
-              >
-                <Plus
-                  size={17}
-                  strokeWidth={2}
-                />
-
-                Nuova vendita
-              </Link>
-
-              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-[10px] text-white/60 backdrop-blur-xl">
-                Vino · Miele
-              </div>
-
-            </div>
-
-          </div>
+          <div className="absolute -right-16 -top-16 z-[2] h-52 w-52 rounded-full bg-white/10 blur-3xl" />
 
           {/* BOTTIGLIA */}
-          <div className="absolute bottom-[-20px] right-[-8px] h-[310px] w-[145px] drop-shadow-[0_20px_30px_rgba(0,0,0,0.32)]">
+          <div className="absolute -bottom-8 -right-8 z-10 h-[300px] w-[135px] drop-shadow-[0_20px_30px_rgba(0,0,0,0.32)]">
 
             <Image
               src="/onelia.png"
@@ -348,9 +303,51 @@ export default async function HomePage() {
 
           </div>
 
+          {/* CONTENT */}
+          <div className="relative z-20 flex min-h-[420px] flex-col justify-between p-6">
+
+            <div className="max-w-[235px]">
+
+              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 backdrop-blur-xl">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-white/70">
+                  Tenuta Monteromola
+                </p>
+              </div>
+
+              <h2 className="monteromola-serif mt-5 text-[41px] leading-[0.95] tracking-[-0.03em] text-white">
+                Gesti antichi
+                <br />
+                sapori veri.
+              </h2>
+
+              <p className="mt-5 max-w-[215px] text-sm leading-6 text-white/65">
+                Una piccola tenuta, prodotti veri e una storia da raccontare.
+              </p>
+
+            </div>
+
+            <div className="relative z-30">
+
+              <Link
+                href="/sales/new"
+                className="inline-flex items-center gap-3 rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#5F2030] shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
+              >
+                <Plus
+                  size={17}
+                  strokeWidth={2}
+                />
+
+                Nuova vendita
+              </Link>
+
+            </div>
+
+          </div>
+
         </div>
 
       </section>
+
       {/* PERFORMANCE VENDITE */}
 
       <section className="mx-5 mt-10">
