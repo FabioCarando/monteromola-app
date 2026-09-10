@@ -2,18 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  Banknote,
-  CreditCard,
-  Landmark,
-  MoreHorizontal,
   Check,
+  Minus,
+  Plus,
+  ShoppingBag,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import BottomNav from "@/components/BottomNav";
 
 type Product = {
   id: string;
@@ -22,6 +21,11 @@ type Product = {
   category: "wine" | "honey";
   price: number;
   image: string;
+};
+
+type InventoryRow = {
+  product_id: string;
+  quantity: number;
 };
 
 const products: Product[] = [
@@ -99,83 +103,188 @@ const products: Product[] = [
   },
 ];
 
-const payments = [
-  {
-    name: "Contanti",
-    icon: Banknote,
-  },
-  {
-    name: "POS",
-    icon: CreditCard,
-  },
-  {
-    name: "Bonifico",
-    icon: Landmark,
-  },
-  {
-    name: "Altro",
-    icon: MoreHorizontal,
-  },
-];
-
 export default function NewSalePage() {
-  const [quantities, setQuantities] =
-    useState<Record<string, number>>({});
-
   const [customer, setCustomer] = useState("");
   const [paymentMethod, setPaymentMethod] =
     useState("Contanti");
-
   const [notes, setNotes] = useState("");
 
+  const [quantities, setQuantities] = useState<
+    Record<string, number>
+  >({});
+
+  const [inventory, setInventory] = useState<
+    Record<string, number>
+  >({});
+
+  const [loadingInventory, setLoadingInventory] =
+    useState(true);
+
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const increase = (id: string) => {
-    setQuantities((current) => ({
-      ...current,
-      [id]: (current[id] || 0) + 1,
+  useEffect(() => {
+    loadInventory();
+  }, []);
+
+  async function loadInventory() {
+    setLoadingInventory(true);
+
+    const { data, error } = await supabase
+      .from("inventory")
+      .select("product_id, quantity");
+
+    if (error) {
+      console.error(error);
+      setErrorMessage(
+        "Non è stato possibile caricare il magazzino."
+      );
+      setLoadingInventory(false);
+      return;
+    }
+
+    const stock: Record<string, number> = {};
+
+    (data as InventoryRow[] | null)?.forEach((row) => {
+      stock[row.product_id] =
+        Number(row.quantity) || 0;
+    });
+
+    setInventory(stock);
+    setLoadingInventory(false);
+  }
+
+  function getQuantity(productId: string) {
+    return quantities[productId] || 0;
+  }
+
+  function increase(productId: string) {
+    const current = getQuantity(productId);
+    const available = inventory[productId] || 0;
+
+    if (current >= available) {
+      return;
+    }
+
+    setQuantities((prev) => ({
+      ...prev,
+      [productId]: current + 1,
     }));
-  };
+  }
 
-  const decrease = (id: string) => {
-    setQuantities((current) => ({
-      ...current,
-      [id]: Math.max((current[id] || 0) - 1, 0),
+  function decrease(productId: string) {
+    const current = getQuantity(productId);
+
+    setQuantities((prev) => ({
+      ...prev,
+      [productId]: Math.max(current - 1, 0),
     }));
-  };
+  }
 
-  const selectedProducts = products.filter(
-    (product) => (quantities[product.id] || 0) > 0
-  );
+  const selectedItems = useMemo(() => {
+    return products
+      .filter(
+        (product) =>
+          (quantities[product.id] || 0) > 0
+      )
+      .map((product) => ({
+        ...product,
+        quantity: quantities[product.id] || 0,
+      }));
+  }, [quantities]);
 
-  const total = products.reduce((sum, product) => {
-    return (
-      sum +
-      (quantities[product.id] || 0) * product.price
+  const saleTotal = useMemo(() => {
+    return selectedItems.reduce(
+      (sum, item) =>
+        sum + item.price * item.quantity,
+      0
     );
-  }, 0);
+  }, [selectedItems]);
 
-  const totalQuantity = selectedProducts.reduce(
-    (sum, product) =>
-      sum + (quantities[product.id] || 0),
-    0
-  );
+  const selectedQuantity = useMemo(() => {
+    return selectedItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+  }, [selectedItems]);
 
-  const saveSale = async () => {
-    if (selectedProducts.length === 0) return;
+  const currentWineStock = products
+    .filter((product) => product.category === "wine")
+    .reduce(
+      (sum, product) =>
+        sum + (inventory[product.id] || 0),
+      0
+    );
+
+  const currentHoneyStock = products
+    .filter((product) => product.category === "honey")
+    .reduce(
+      (sum, product) =>
+        sum + (inventory[product.id] || 0),
+      0
+    );
+
+  const remainingWineStock = products
+    .filter((product) => product.category === "wine")
+    .reduce((sum, product) => {
+      const available = inventory[product.id] || 0;
+      const selling = quantities[product.id] || 0;
+
+      return sum + Math.max(available - selling, 0);
+    }, 0);
+
+  const remainingHoneyStock = products
+    .filter((product) => product.category === "honey")
+    .reduce((sum, product) => {
+      const available = inventory[product.id] || 0;
+      const selling = quantities[product.id] || 0;
+
+      return sum + Math.max(available - selling, 0);
+    }, 0);
+
+  const totalRemaining =
+    remainingWineStock + remainingHoneyStock;
+
+  async function saveSale() {
+    if (selectedItems.length === 0) {
+      setErrorMessage(
+        "Seleziona almeno un prodotto."
+      );
+      return;
+    }
+
+    for (const item of selectedItems) {
+      const available = inventory[item.id] || 0;
+
+      if (item.quantity > available) {
+        setErrorMessage(
+          `Magazzino insufficiente per ${item.name}${
+            item.variant
+              ? ` ${item.variant}`
+              : ""
+          }.`
+        );
+        return;
+      }
+    }
 
     try {
       setSaving(true);
       setErrorMessage("");
 
+      /*
+       * 1. CREA LA VENDITA
+       */
+
       const { data: order, error: orderError } =
         await supabase
           .from("orders")
           .insert({
-            customer: customer.trim() || null,
-            total,
+            order_date: new Date().toISOString(),
+            customer:
+              customer.trim() || "Cliente",
+            total: saleTotal,
             payment_method: paymentMethod,
             payment_status: "Pagato",
             box_quantity: 0,
@@ -185,151 +294,310 @@ export default function NewSalePage() {
           .select()
           .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        throw orderError;
+      }
 
-      const items = selectedProducts.map(
-        (product) => ({
+      /*
+       * 2. CREA LE RIGHE DELLA VENDITA
+       */
+
+      const orderItems = selectedItems.map(
+        (item) => ({
           order_id: order.id,
-          product_id: product.id,
-          product_name: product.name,
-          variant: product.variant || null,
-          category: product.category,
-          quantity: quantities[product.id] || 0,
-          unit_price: product.price,
+          product_id: item.id,
+          product_name: item.name,
+          variant: item.variant || null,
+          category: item.category,
+          quantity: item.quantity,
+          unit_price: item.price,
         })
       );
 
       const { error: itemsError } = await supabase
         .from("order_items")
-        .insert(items);
+        .insert(orderItems);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        throw itemsError;
+      }
 
-      setSaved(true);
+      /*
+       * 3. SCALA IL MAGAZZINO
+       */
+
+      for (const item of selectedItems) {
+        const { error: stockError } =
+          await supabase.rpc(
+            "decrement_inventory",
+            {
+              p_product_id: item.id,
+              p_quantity: item.quantity,
+            }
+          );
+
+        if (stockError) {
+          throw stockError;
+        }
+      }
+
+      /*
+       * 4. RICARICA IL MAGAZZINO
+       */
+
+      await loadInventory();
+
+      setSuccess(true);
     } catch (error: any) {
       console.error(error);
 
       setErrorMessage(
         error?.message ||
-          "Errore durante il salvataggio."
+          "Errore durante la registrazione della vendita."
       );
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  if (saved) {
+  function resetSale() {
+    setCustomer("");
+    setPaymentMethod("Contanti");
+    setNotes("");
+    setQuantities({});
+    setSuccess(false);
+    setErrorMessage("");
+
+    loadInventory();
+  }
+
+  function ProductCard({
+    product,
+  }: {
+    product: Product;
+  }) {
+    const quantity =
+      quantities[product.id] || 0;
+
+    const available =
+      inventory[product.id] || 0;
+
+    const remaining = Math.max(
+      available - quantity,
+      0
+    );
+
+    const soldOut = available === 0;
+
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FCFAF5] px-6 text-[#211F1C]">
-        <div className="w-full max-w-sm text-center">
-
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#657052]/10 text-[#657052]">
-            <Check size={38} strokeWidth={1.8} />
+      <div className="rounded-[25px] bg-white p-4 shadow-[0_8px_30px_rgba(30,26,21,0.035)]">
+        <div className="flex items-center gap-4">
+          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[20px] bg-[#F2EEE6]">
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              className="object-contain p-1"
+            />
           </div>
 
-          <p className="mt-7 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#6F2636]">
-            Tenuta Monteromola
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">
+              {product.name}
+            </p>
 
-          <h1 className="monteromola-serif mt-2 text-[40px] leading-none">
-            Vendita
-            <br />
-            registrata.
+            <p className="mt-1 text-xs text-[#89837B]">
+              {product.variant
+                ? `${product.variant} · `
+                : ""}
+              €{product.price.toFixed(2)}
+            </p>
+
+            <p
+              className={`mt-2 text-xs font-semibold ${
+                soldOut
+                  ? "text-red-500"
+                  : remaining <= 5
+                  ? "text-orange-500"
+                  : "text-[#657052]"
+              }`}
+            >
+              {soldOut
+                ? "Esaurito"
+                : `Disponibili: ${available}`}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between">
+
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-[#969087]">
+              Dopo vendita
+            </p>
+
+            <p className="mt-1 text-sm font-semibold">
+              {remaining} rimasti
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+
+            <button
+              type="button"
+              onClick={() =>
+                decrease(product.id)
+              }
+              disabled={quantity === 0}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F1EEE7] disabled:opacity-30"
+            >
+              <Minus size={18} />
+            </button>
+
+            <div className="w-8 text-center text-lg font-semibold">
+              {quantity}
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                increase(product.id)
+              }
+              disabled={
+                soldOut ||
+                quantity >= available
+              }
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#6F2636] text-white disabled:opacity-30"
+            >
+              <Plus size={18} />
+            </button>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <main className="min-h-screen bg-[#FCFAF5] px-5 pb-32 pt-10 text-[#211F1C]">
+
+        <div className="mx-auto max-w-md">
+
+          <div className="flex justify-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#657052] text-white">
+              <Check size={38} />
+            </div>
+          </div>
+
+          <h1 className="monteromola-serif mt-7 text-center text-[38px] leading-tight">
+            Vendita registrata
           </h1>
 
-          <p className="monteromola-serif mt-7 text-[53px] text-[#6F2636]">
-            €{total.toFixed(0)}
+          <p className="mt-3 text-center text-sm text-[#817B73]">
+            Il magazzino è stato aggiornato automaticamente.
           </p>
 
-          <Link
-            href="/sales/new"
-            className="mt-9 block rounded-[22px] bg-[#211F1C] px-5 py-4 font-semibold text-white"
+          {/* VENDITA */}
+
+          <div className="mt-8 rounded-[28px] bg-[#6F2636] p-6 text-white">
+            <p className="text-xs uppercase tracking-[0.18em] text-white/55">
+              Totale vendita
+            </p>
+
+            <p className="monteromola-serif mt-2 text-[45px]">
+              €{saleTotal.toFixed(2)}
+            </p>
+
+            <p className="mt-2 text-sm text-white/60">
+              {selectedQuantity} prodotti venduti
+            </p>
+          </div>
+
+          {/* RIMANENZE */}
+
+          <div className="mt-5 rounded-[28px] bg-white p-6 shadow-sm">
+
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#657052]">
+              Magazzino aggiornato
+            </p>
+
+            <div className="mt-4 flex items-end justify-between">
+
+              <div>
+                <p className="text-sm text-[#8A847D]">
+                  Prodotti rimanenti
+                </p>
+
+                <p className="monteromola-serif mt-1 text-[45px]">
+                  {currentWineStock +
+                    currentHoneyStock}
+                </p>
+              </div>
+
+              <ShoppingBag
+                size={34}
+                className="text-[#6F2636]"
+              />
+
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+
+              <div className="rounded-[18px] bg-[#F7F3ED] p-4">
+                <p className="text-xs text-[#918B83]">
+                  Vino
+                </p>
+
+                <p className="mt-1 text-xl font-semibold">
+                  {currentWineStock}
+                </p>
+              </div>
+
+              <div className="rounded-[18px] bg-[#F4F5EE] p-4">
+                <p className="text-xs text-[#918B83]">
+                  Miele
+                </p>
+
+                <p className="mt-1 text-xl font-semibold">
+                  {currentHoneyStock}
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={resetSale}
+            className="mt-7 w-full rounded-[20px] bg-[#6F2636] px-5 py-4 font-semibold text-white"
           >
-            Nuova vendita
-          </Link>
+            Registra un'altra vendita
+          </button>
 
           <Link
             href="/"
-            className="mt-3 block rounded-[22px] bg-white px-5 py-4 font-semibold shadow-sm"
+            className="mt-3 flex w-full items-center justify-center rounded-[20px] border border-[#6F2636]/15 bg-white px-5 py-4 font-semibold text-[#6F2636]"
           >
-            Torna alla Home
+            Torna alla home
           </Link>
 
         </div>
+
+        <BottomNav />
       </main>
     );
   }
 
-  const renderProduct = (product: Product) => {
-    const quantity = quantities[product.id] || 0;
-
-    return (
-      <div
-        key={product.id}
-        className="flex items-center gap-4 border-b border-black/[0.045] py-4 last:border-0"
-      >
-        <div
-          className={`relative h-[62px] w-[62px] shrink-0 overflow-hidden rounded-[18px] ${
-            product.category === "wine"
-              ? "bg-[#EFE7DC]"
-              : "bg-[#F0EDDF]"
-          }`}
-        >
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            className="object-contain p-1"
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">
-            {product.name}
-          </p>
-
-          <div className="mt-1 flex items-center gap-2">
-            {product.variant && (
-              <span className="text-xs text-[#99938A]">
-                {product.variant}
-              </span>
-            )}
-
-            <span className="text-xs font-semibold text-[#6F2636]">
-              €{product.price}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => decrease(product.id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F2EFE8] text-lg"
-          >
-            −
-          </button>
-
-          <span className="w-5 text-center text-sm font-semibold">
-            {quantity}
-          </span>
-
-          <button
-            onClick={() => increase(product.id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#6F2636] text-lg text-white"
-          >
-            +
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <main className="min-h-screen bg-[#FCFAF5] text-[#211F1C]">
-      <div className="mx-auto max-w-md px-5 pb-44 pt-6">
+
+      <div className="mx-auto max-w-md px-5 pb-40 pt-6">
 
         {/* HEADER */}
+
         <header>
+
           <div className="flex items-center justify-between">
 
             <Link
@@ -342,13 +610,14 @@ export default function NewSalePage() {
             <div className="relative h-11 w-11">
               <Image
                 src="/logo-monteromola.png"
-                alt="Monteromola"
+                alt="Tenuta Monteromola"
                 fill
                 className="object-contain"
               />
             </div>
 
             <div className="h-10 w-10" />
+
           </div>
 
           <p className="mt-7 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#6F2636]">
@@ -358,13 +627,77 @@ export default function NewSalePage() {
           <h1 className="monteromola-serif mt-1 text-[39px] leading-none">
             Nuova vendita
           </h1>
+
         </header>
 
-        {/* CLIENT */}
-        <section className="mt-8">
-          <p className="text-xs font-semibold text-[#5E5953]">
-            Cliente
+        {/* MAGAZZINO */}
+
+        <section className="mt-7 rounded-[28px] bg-[#211F1C] p-5 text-white">
+
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+            Magazzino
           </p>
+
+          {loadingInventory ? (
+            <p className="mt-3 text-sm text-white/60">
+              Caricamento...
+            </p>
+          ) : (
+            <>
+              <div className="mt-3 flex items-end justify-between">
+
+                <div>
+                  <p className="monteromola-serif text-[42px] leading-none">
+                    {totalRemaining}
+                  </p>
+
+                  <p className="mt-2 text-xs text-white/50">
+                    rimanenti dopo questa vendita
+                  </p>
+                </div>
+
+                <ShoppingBag
+                  size={29}
+                  className="text-white/60"
+                />
+
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+
+                <div className="rounded-[18px] bg-white/10 p-3">
+                  <p className="text-xs text-white/50">
+                    Vino
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold">
+                    {remainingWineStock}
+                  </p>
+                </div>
+
+                <div className="rounded-[18px] bg-white/10 p-3">
+                  <p className="text-xs text-white/50">
+                    Miele
+                  </p>
+
+                  <p className="mt-1 text-lg font-semibold">
+                    {remainingHoneyStock}
+                  </p>
+                </div>
+
+              </div>
+            </>
+          )}
+
+        </section>
+
+        {/* CLIENTE */}
+
+        <section className="mt-8">
+
+          <label className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8B857D]">
+            Cliente
+          </label>
 
           <input
             type="text"
@@ -372,157 +705,193 @@ export default function NewSalePage() {
             onChange={(e) =>
               setCustomer(e.target.value)
             }
-            placeholder="Vendita diretta"
-            className="mt-2 w-full rounded-[20px] border border-black/[0.05] bg-white px-4 py-4 text-sm outline-none placeholder:text-[#AAA49B]"
+            placeholder="Nome cliente"
+            className="mt-2 h-14 w-full rounded-[18px] border border-black/[0.06] bg-white px-4 text-sm outline-none focus:border-[#6F2636]/30"
           />
+
         </section>
 
-        {/* WINE */}
+        {/* VINO */}
+
         <section className="mt-9">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.19em] text-[#6F2636]">
-              Cantina
-            </p>
 
-            <h2 className="monteromola-serif mt-1 text-[28px]">
-              Vino
-            </h2>
-          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6F2636]">
+            Cantina
+          </p>
 
-          <div className="mt-3 rounded-[28px] bg-white px-4 shadow-[0_8px_30px_rgba(30,26,21,0.035)]">
+          <h2 className="monteromola-serif mt-1 text-[29px]">
+            Vini
+          </h2>
+
+          <div className="mt-4 space-y-3">
             {products
               .filter(
                 (product) =>
                   product.category === "wine"
               )
-              .map(renderProduct)}
+              .map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                />
+              ))}
           </div>
+
         </section>
 
-        {/* HONEY */}
-        <section className="mt-9">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.19em] text-[#657052]">
+        {/* MIELE */}
+
+        <section className="mt-10">
+
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#657052]">
             Dalla Tenuta
           </p>
 
-          <h2 className="monteromola-serif mt-1 text-[28px]">
+          <h2 className="monteromola-serif mt-1 text-[29px]">
             Miele
           </h2>
 
-          <div className="mt-3 rounded-[28px] bg-white px-4 shadow-[0_8px_30px_rgba(30,26,21,0.035)]">
+          <div className="mt-4 space-y-3">
             {products
               .filter(
                 (product) =>
                   product.category === "honey"
               )
-              .map(renderProduct)}
+              .map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                />
+              ))}
           </div>
+
         </section>
 
-        {/* PAYMENT */}
-        <section className="mt-9">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.19em] text-[#8F8980]">
-            Checkout
-          </p>
+        {/* PAGAMENTO */}
 
-          <h2 className="monteromola-serif mt-1 text-[28px]">
+        <section className="mt-10">
+
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8B857D]">
             Pagamento
-          </h2>
+          </p>
 
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            {payments.map((method) => {
-              const Icon = method.icon;
+          <div className="mt-3 grid grid-cols-2 gap-3">
 
-              const selected =
-                paymentMethod === method.name;
+            {[
+              "Contanti",
+              "POS",
+              "Bonifico",
+              "Altro",
+            ].map((method) => (
+              <button
+                key={method}
+                type="button"
+                onClick={() =>
+                  setPaymentMethod(method)
+                }
+                className={`rounded-[17px] border px-4 py-3 text-sm font-semibold ${
+                  paymentMethod === method
+                    ? "border-[#6F2636] bg-[#6F2636] text-white"
+                    : "border-black/[0.06] bg-white text-[#514C46]"
+                }`}
+              >
+                {method}
+              </button>
+            ))}
 
-              return (
-                <button
-                  key={method.name}
-                  onClick={() =>
-                    setPaymentMethod(method.name)
-                  }
-                  className={`flex flex-col items-center gap-2 rounded-[20px] px-2 py-4 text-[10px] font-semibold ${
-                    selected
-                      ? "bg-[#6F2636] text-white"
-                      : "bg-white text-[#5D5954]"
-                  }`}
-                >
-                  <Icon
-                    size={19}
-                    strokeWidth={1.7}
-                  />
-
-                  {method.name}
-                </button>
-              );
-            })}
           </div>
+
         </section>
 
-        {/* NOTES */}
+        {/* NOTE */}
+
         <section className="mt-8">
-          <p className="text-xs font-semibold text-[#5E5953]">
+
+          <label className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8B857D]">
             Note
-          </p>
+          </label>
 
           <textarea
             value={notes}
             onChange={(e) =>
               setNotes(e.target.value)
             }
-            placeholder="Aggiungi una nota..."
+            placeholder="Note opzionali..."
             rows={3}
-            className="mt-2 w-full resize-none rounded-[20px] border border-black/[0.05] bg-white px-4 py-4 text-sm outline-none"
+            className="mt-2 w-full resize-none rounded-[18px] border border-black/[0.06] bg-white p-4 text-sm outline-none focus:border-[#6F2636]/30"
           />
+
         </section>
 
         {errorMessage && (
-          <p className="mt-5 text-center text-sm text-red-600">
+          <div className="mt-6 rounded-[18px] bg-red-50 p-4 text-sm text-red-600">
             {errorMessage}
-          </p>
+          </div>
         )}
 
-      </div>
+        {/* RIEPILOGO */}
 
-      {/* CHECKOUT BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/[0.045] bg-[#FCFAF5]/95 px-5 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-4 backdrop-blur-2xl">
+        <section className="mt-8 rounded-[28px] bg-white p-5 shadow-sm">
 
-        <div className="mx-auto max-w-md">
+          <div className="flex justify-between text-sm">
+            <span className="text-[#8C867F]">
+              Prodotti
+            </span>
 
-          <div className="mb-3 flex items-end justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[#979188]">
-                {totalQuantity} prodotti
-              </p>
-
-              <p className="monteromola-serif mt-1 text-[31px] leading-none">
-                €{total.toFixed(2)}
-              </p>
-            </div>
-
-            {customer && (
-              <p className="max-w-[130px] truncate text-xs text-[#858078]">
-                {customer}
-              </p>
-            )}
+            <span className="font-semibold">
+              {selectedQuantity}
+            </span>
           </div>
 
-          <button
-            onClick={saveSale}
-            disabled={
-              saving ||
-              selectedProducts.length === 0
-            }
-            className="w-full rounded-[22px] bg-[#6F2636] px-5 py-[17px] font-semibold text-white shadow-[0_10px_30px_rgba(111,38,54,0.22)] disabled:opacity-30"
-          >
-            {saving
-              ? "Salvataggio..."
-              : "Registra vendita"}
-          </button>
+          <div className="mt-3 flex justify-between text-sm">
+            <span className="text-[#8C867F]">
+              Rimanenza magazzino
+            </span>
 
-        </div>
+            <span className="font-semibold">
+              {totalRemaining}
+            </span>
+          </div>
+
+          <div className="mt-5 border-t border-black/[0.06] pt-5">
+
+            <div className="flex items-end justify-between">
+
+              <span className="font-semibold">
+                Totale
+              </span>
+
+              <span className="monteromola-serif text-[34px] text-[#6F2636]">
+                €{saleTotal.toFixed(2)}
+              </span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* REGISTRA */}
+
+        <button
+          type="button"
+          onClick={saveSale}
+          disabled={
+            saving ||
+            selectedItems.length === 0
+          }
+          className="mt-5 w-full rounded-[22px] bg-[#6F2636] px-5 py-[18px] font-semibold text-white shadow-[0_10px_30px_rgba(111,38,54,0.2)] disabled:opacity-40"
+        >
+          {saving
+            ? "Registrazione..."
+            : `Registra vendita · €${saleTotal.toFixed(
+                2
+              )}`}
+        </button>
+
       </div>
+
+      <BottomNav />
 
     </main>
   );
