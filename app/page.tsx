@@ -303,11 +303,9 @@ export default async function HomePage() {
               </div>
 
               <h2 className="monteromola-serif mt-5 max-w-[260px] text-[43px] leading-[0.95] tracking-[-0.03em] text-white">
-                Terra,
+                Gesti antichi
                 <br />
-                vino,
-                <br />
-                autenticità.
+                sapori veri.
               </h2>
 
               <p className="mt-5 max-w-[220px] text-sm leading-6 text-white/60">
