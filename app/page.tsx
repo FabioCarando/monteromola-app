@@ -296,9 +296,9 @@ export default async function HomePage() {
               </p>
 
               <h2 className="monteromola-serif mt-3 max-w-[260px] text-[38px] leading-[0.98] text-white">
-                Il lavoro della terra,
+                Gesti antichi,
                 <br />
-                ogni giorno.
+                sapori veri.
               </h2>
 
               <p className="mt-4 max-w-[230px] text-sm leading-6 text-white/65">
