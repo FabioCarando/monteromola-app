@@ -1,18 +1,7 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  Check,
-  Minus,
-  Plus,
-  Save,
-} from "lucide-react";
-
 import { supabase } from "@/lib/supabase";
-import BottomNav from "@/components/BottomNav";
 
 type InventoryItem = {
   id: number;
@@ -21,472 +10,217 @@ type InventoryItem = {
   variant: string | null;
   category: string;
   quantity: number;
-  updated_at: string | null;
-};
-
-const productImages: Record<string, string> = {
-  onelia: "/onelia.png",
-  gea: "/gea.png",
-  giulio: "/giulio.png",
-
-  "acacia-250": "/acacia.png",
-  "acacia-500": "/acacia.png",
-
-  "millefiori-250": "/millefiori.png",
-  "millefiori-500": "/millefiori.png",
-
-  "melata-250": "/melata.png",
-  "melata-500": "/melata.png",
 };
 
 export default function InventoryPage() {
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-
-  /*
-    Usiamo stringhe invece di number.
-
-    Questo permette di cancellare completamente il valore
-    dall'input e poi scrivere, per esempio, 25.
-  */
-  const [quantities, setQuantities] = useState<
-    Record<string, string>
-  >({});
-
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     loadInventory();
   }, []);
 
-  const loadInventory = async () => {
-    setLoading(true);
-    setErrorMessage("");
-
+  async function loadInventory() {
     const { data, error } = await supabase
       .from("inventory")
       .select("*")
-      .order("category", { ascending: false })
-      .order("product_name", { ascending: true });
+      .order("category")
+      .order("product_name");
 
     if (error) {
       console.error(error);
-
-      setErrorMessage(
-        "Errore durante il caricamento del magazzino."
-      );
-
+      setMessage("Errore nel caricamento.");
       setLoading(false);
       return;
     }
 
-    const items = (data || []) as InventoryItem[];
+    const rows = (data || []) as InventoryItem[];
 
-    setInventory(items);
+    setItems(rows);
 
-    const initialQuantities: Record<string, string> = {};
+    const initialValues: Record<string, string> = {};
 
-    items.forEach((item) => {
-      initialQuantities[item.product_id] = String(
-        Number(item.quantity) || 0
-      );
+    rows.forEach((item) => {
+      initialValues[item.product_id] = String(item.quantity ?? 0);
     });
 
-    setQuantities(initialQuantities);
+    setQuantities(initialValues);
     setLoading(false);
-  };
+  }
 
-  const getNumericQuantity = (productId: string) => {
-    const value = Number(quantities[productId]);
-
-    if (Number.isNaN(value) || value < 0) {
-      return 0;
-    }
-
-    return Math.floor(value);
-  };
-
-  const increase = (productId: string) => {
-    setSaved(false);
-
-    const current = getNumericQuantity(productId);
-
-    setQuantities((previous) => ({
-      ...previous,
-      [productId]: String(current + 1),
-    }));
-  };
-
-  const decrease = (productId: string) => {
-    setSaved(false);
-
-    const current = getNumericQuantity(productId);
-
-    setQuantities((previous) => ({
-      ...previous,
-      [productId]: String(Math.max(current - 1, 0)),
-    }));
-  };
-
-  const handleQuantityChange = (
-    productId: string,
-    value: string
-  ) => {
-    setSaved(false);
-
-    /*
-      Accettiamo solo numeri interi positivi
-      oppure campo vuoto mentre Elena sta digitando.
-    */
+  function changeQuantity(productId: string, value: string) {
     if (value === "" || /^\d+$/.test(value)) {
-      setQuantities((previous) => ({
-        ...previous,
+      setQuantities((prev) => ({
+        ...prev,
         [productId]: value,
       }));
     }
-  };
+  }
 
-  const handleQuantityBlur = (productId: string) => {
-    /*
-      Se Elena lascia il campo vuoto,
-      quando esce dall'input lo riportiamo a 0.
-    */
-    if (quantities[productId] === "") {
-      setQuantities((previous) => ({
-        ...previous,
-        [productId]: "0",
-      }));
-    }
-  };
+  function increase(productId: string) {
+    const current = Number(quantities[productId] || 0);
 
-  const saveInventory = async () => {
+    setQuantities((prev) => ({
+      ...prev,
+      [productId]: String(current + 1),
+    }));
+  }
+
+  function decrease(productId: string) {
+    const current = Number(quantities[productId] || 0);
+
+    setQuantities((prev) => ({
+      ...prev,
+      [productId]: String(Math.max(current - 1, 0)),
+    }));
+  }
+
+  async function saveInventory() {
+    setSaving(true);
+    setMessage("");
+
     try {
-      setSaving(true);
-      setSaved(false);
-      setErrorMessage("");
+      for (const item of items) {
+        const quantity = Number(quantities[item.product_id] || 0);
 
-      const updates = inventory.map((item) => ({
-        id: item.id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        variant: item.variant,
-        category: item.category,
-        quantity: getNumericQuantity(item.product_id),
-        updated_at: new Date().toISOString(),
-      }));
+        const { error } = await supabase
+          .from("inventory")
+          .update({
+            quantity,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", item.id);
 
-      const { error } = await supabase
-        .from("inventory")
-        .upsert(updates);
-
-      if (error) {
-        throw error;
+        if (error) {
+          throw error;
+        }
       }
 
-      setSaved(true);
-
-      /*
-        Aggiorniamo anche lo stato locale senza
-        far lampeggiare tutta la pagina.
-      */
-      setInventory((current) =>
-        current.map((item) => ({
-          ...item,
-          quantity: getNumericQuantity(item.product_id),
-          updated_at: new Date().toISOString(),
-        }))
-      );
-
-      setTimeout(() => {
-        setSaved(false);
-      }, 2500);
-    } catch (error: any) {
+      setMessage("Magazzino salvato.");
+    } catch (error) {
       console.error(error);
-
-      setErrorMessage(
-        error?.message ||
-          "Errore durante il salvataggio del magazzino."
-      );
+      setMessage("Errore durante il salvataggio.");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const wines = inventory.filter(
-    (item) => item.category === "wine"
-  );
-
-  const honey = inventory.filter(
-    (item) => item.category === "honey"
-  );
-
-  const totalStock = inventory.reduce(
-    (sum, item) =>
-      sum + getNumericQuantity(item.product_id),
-    0
-  );
-
-  const wineStock = wines.reduce(
-    (sum, item) =>
-      sum + getNumericQuantity(item.product_id),
-    0
-  );
-
-  const honeyStock = honey.reduce(
-    (sum, item) =>
-      sum + getNumericQuantity(item.product_id),
-    0
-  );
-
-  const renderItem = (item: InventoryItem) => {
-    const quantity = quantities[item.product_id] ?? "0";
-
+  if (loading) {
     return (
-      <div
-        key={item.id}
-        className="flex items-center gap-3 border-b border-black/[0.045] py-4 last:border-0"
-      >
-        {/* FOTO */}
-        <div
-          className={`relative h-[62px] w-[62px] shrink-0 overflow-hidden rounded-[19px] ${
-            item.category === "wine"
-              ? "bg-[#EEE5DA]"
-              : "bg-[#F0EDDF]"
-          }`}
-        >
-          <Image
-            src={
-              productImages[item.product_id] ||
-              "/logo-monteromola.png"
-            }
-            alt={item.product_name}
-            fill
-            className="object-contain p-1"
-          />
-        </div>
+      <main className="min-h-screen bg-[#FCFAF5] p-6">
+        <p>Caricamento...</p>
+      </main>
+    );
+  }
 
-        {/* NOME */}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">
+  const wines = items.filter((item) => item.category === "wine");
+  const honey = items.filter((item) => item.category === "honey");
+
+  function ProductRow({ item }: { item: InventoryItem }) {
+    return (
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div>
+          <p className="text-lg font-semibold">
             {item.product_name}
           </p>
 
-          <p className="mt-1 text-xs text-[#918B83]">
-            {item.variant ||
-              (item.category === "wine"
-                ? "Vino"
-                : "Miele")}
+          <p className="text-sm text-gray-500">
+            {item.variant || (item.category === "wine" ? "Vino" : "Miele")}
           </p>
         </div>
 
-        {/* QUANTITÀ */}
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="mt-4 flex items-center gap-3">
           <button
             type="button"
             onClick={() => decrease(item.product_id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F1EEE7] text-[#514C46] active:scale-95"
+            className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-200 text-2xl font-bold"
           >
-            <Minus size={16} />
+            −
           </button>
 
           <input
             type="text"
             inputMode="numeric"
-            pattern="[0-9]*"
-            value={quantity}
+            value={quantities[item.product_id] ?? ""}
             onChange={(e) =>
-              handleQuantityChange(
-                item.product_id,
-                e.target.value
-              )
-            }
-            onBlur={() =>
-              handleQuantityBlur(item.product_id)
+              changeQuantity(item.product_id, e.target.value)
             }
             onFocus={(e) => e.currentTarget.select()}
-            className="h-10 w-[58px] rounded-[14px] border border-black/[0.07] bg-[#FCFAF5] text-center text-base font-semibold outline-none focus:border-[#6F2636]/40 focus:ring-2 focus:ring-[#6F2636]/10"
+            className="h-12 min-w-0 flex-1 rounded-xl border border-gray-300 bg-white text-center text-xl font-bold text-black"
           />
 
           <button
             type="button"
             onClick={() => increase(item.product_id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#6F2636] text-white active:scale-95"
+            className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#6F2636] text-2xl font-bold text-white"
           >
-            <Plus size={16} />
+            +
           </button>
         </div>
       </div>
-    );
-  };
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FCFAF5]">
-        <p className="text-sm text-[#817B73]">
-          Caricamento magazzino...
-        </p>
-      </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#FCFAF5] text-[#211F1C]">
+    <main className="min-h-screen bg-[#FCFAF5] px-5 pb-40 pt-8 text-[#211F1C]">
 
-      {/*
-        pb molto grande perché sotto abbiamo:
-        - pulsante Salva
-        - BottomNav
-      */}
-      <div className="mx-auto max-w-md px-5 pb-56 pt-6">
+      <div className="mx-auto max-w-md">
 
-        {/* HEADER */}
-        <header>
-          <div className="flex items-center justify-between">
-            <Link
-              href="/"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm"
-            >
-              <ArrowLeft size={19} />
-            </Link>
+        <p className="text-sm font-semibold uppercase tracking-widest text-[#6F2636]">
+          Tenuta Monteromola
+        </p>
 
-            <div className="relative h-11 w-11">
-              <Image
-                src="/logo-monteromola.png"
-                alt="Tenuta Monteromola"
-                fill
-                className="object-contain"
-              />
-            </div>
+        <h1 className="mt-2 text-4xl font-bold">
+          Magazzino
+        </h1>
 
-            <div className="h-10 w-10" />
-          </div>
+        <p className="mt-2 text-sm text-gray-500">
+          Modifica direttamente le quantità disponibili.
+        </p>
 
-          <p className="mt-7 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#6F2636]">
-            Tenuta Monteromola
-          </p>
-
-          <h1 className="monteromola-serif mt-1 text-[39px] leading-none">
-            Magazzino
-          </h1>
-
-          <p className="mt-3 text-sm leading-6 text-[#817B73]">
-            Inserisci e aggiorna le quantità disponibili.
-          </p>
-        </header>
-
-        {/* SUMMARY */}
-        <section className="mt-7 overflow-hidden rounded-[32px] bg-[#641F30] p-6 text-white shadow-[0_20px_50px_rgba(91,28,42,0.18)]">
-
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">
-            Disponibilità totale
-          </p>
-
-          <p className="monteromola-serif mt-3 text-[52px] leading-none">
-            {totalStock}
-          </p>
-
-          <p className="mt-2 text-sm text-white/55">
-            prodotti in magazzino
-          </p>
-
-          <div className="mt-8 grid grid-cols-2 gap-3">
-
-            <div className="rounded-[20px] bg-white/10 p-4">
-              <p className="text-xs text-white/55">
-                Vino
-              </p>
-
-              <p className="mt-1 text-2xl font-semibold">
-                {wineStock}
-              </p>
-            </div>
-
-            <div className="rounded-[20px] bg-white/10 p-4">
-              <p className="text-xs text-white/55">
-                Miele
-              </p>
-
-              <p className="mt-1 text-2xl font-semibold">
-                {honeyStock}
-              </p>
-            </div>
-
-          </div>
-        </section>
-
-        {/* VINO */}
-        <section className="mt-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6F2636]">
-            Cantina
-          </p>
-
-          <h2 className="monteromola-serif mt-1 text-[29px]">
+        <section className="mt-8">
+          <h2 className="mb-4 text-2xl font-bold">
             Vino
           </h2>
 
-          <div className="mt-4 rounded-[28px] bg-white px-4 shadow-[0_8px_30px_rgba(30,26,21,0.035)]">
-            {wines.map(renderItem)}
+          <div className="space-y-4">
+            {wines.map((item) => (
+              <ProductRow key={item.id} item={item} />
+            ))}
           </div>
         </section>
 
-        {/* MIELE */}
         <section className="mt-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#657052]">
-            Dalla Tenuta
-          </p>
-
-          <h2 className="monteromola-serif mt-1 text-[29px]">
+          <h2 className="mb-4 text-2xl font-bold">
             Miele
           </h2>
 
-          <div className="mt-4 rounded-[28px] bg-white px-4 shadow-[0_8px_30px_rgba(30,26,21,0.035)]">
-            {honey.map(renderItem)}
+          <div className="space-y-4">
+            {honey.map((item) => (
+              <ProductRow key={item.id} item={item} />
+            ))}
           </div>
         </section>
 
-        {errorMessage && (
-          <div className="mt-6 rounded-[18px] bg-red-50 p-4 text-sm text-red-600">
-            {errorMessage}
-          </div>
+        {message && (
+          <p className="mt-6 text-center text-sm font-semibold">
+            {message}
+          </p>
         )}
 
+        <button
+          type="button"
+          onClick={saveInventory}
+          disabled={saving}
+          className="mt-8 mb-10 w-full rounded-2xl bg-[#6F2636] px-5 py-5 text-lg font-bold text-white disabled:opacity-50"
+        >
+          {saving ? "Salvataggio..." : "Salva magazzino"}
+        </button>
+
       </div>
-
-      {/* SAVE BAR */}
-      <div className="fixed bottom-[82px] left-0 right-0 z-40 px-5">
-        <div className="mx-auto max-w-md rounded-[26px] bg-[#FCFAF5]/95 p-2 backdrop-blur-xl">
-
-          <button
-            type="button"
-            onClick={saveInventory}
-            disabled={saving}
-            className={`flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[20px] px-5 py-4 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(111,38,54,0.22)] ${
-              saved
-                ? "bg-[#657052]"
-                : "bg-[#6F2636]"
-            } disabled:opacity-50`}
-          >
-            {saved ? (
-              <>
-                <Check size={19} />
-                Magazzino salvato
-              </>
-            ) : (
-              <>
-                <Save size={19} />
-                {saving
-                  ? "Salvataggio..."
-                  : "Salva magazzino"}
-              </>
-            )}
-          </button>
-
-        </div>
-      </div>
-
-      <BottomNav />
     </main>
   );
 }
