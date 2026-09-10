@@ -321,7 +321,7 @@ export default async function HomePage() {
               </h2>
 
               <p className="mt-5 max-w-[215px] text-sm leading-6 text-white/65">
-                Una piccola tenuta, prodotti veri e una storia da raccontare.
+                P. IVA IT05855160155
               </p>
 
             </div>
