@@ -40,12 +40,16 @@ const productImages: Record<string, string> = {
 };
 
 export default function InventoryPage() {
-  const [inventory, setInventory] = useState<InventoryItem[]>(
-    []
-  );
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
+  /*
+    Usiamo stringhe invece di number.
+
+    Questo permette di cancellare completamente il valore
+    dall'input e poi scrivere, per esempio, 25.
+  */
   const [quantities, setQuantities] = useState<
-    Record<string, number>
+    Record<string, string>
   >({});
 
   const [loading, setLoading] = useState(true);
@@ -69,9 +73,11 @@ export default function InventoryPage() {
 
     if (error) {
       console.error(error);
+
       setErrorMessage(
         "Errore durante il caricamento del magazzino."
       );
+
       setLoading(false);
       return;
     }
@@ -80,53 +86,79 @@ export default function InventoryPage() {
 
     setInventory(items);
 
-    const initialQuantities: Record<string, number> = {};
+    const initialQuantities: Record<string, string> = {};
 
     items.forEach((item) => {
-      initialQuantities[item.product_id] =
-        Number(item.quantity) || 0;
+      initialQuantities[item.product_id] = String(
+        Number(item.quantity) || 0
+      );
     });
 
     setQuantities(initialQuantities);
     setLoading(false);
   };
 
+  const getNumericQuantity = (productId: string) => {
+    const value = Number(quantities[productId]);
+
+    if (Number.isNaN(value) || value < 0) {
+      return 0;
+    }
+
+    return Math.floor(value);
+  };
+
   const increase = (productId: string) => {
     setSaved(false);
 
-    setQuantities((current) => ({
-      ...current,
-      [productId]: (current[productId] || 0) + 1,
+    const current = getNumericQuantity(productId);
+
+    setQuantities((previous) => ({
+      ...previous,
+      [productId]: String(current + 1),
     }));
   };
 
   const decrease = (productId: string) => {
     setSaved(false);
 
-    setQuantities((current) => ({
-      ...current,
-      [productId]: Math.max(
-        (current[productId] || 0) - 1,
-        0
-      ),
+    const current = getNumericQuantity(productId);
+
+    setQuantities((previous) => ({
+      ...previous,
+      [productId]: String(Math.max(current - 1, 0)),
     }));
   };
 
-  const setQuantity = (
+  const handleQuantityChange = (
     productId: string,
     value: string
   ) => {
     setSaved(false);
 
-    const parsed = Number(value);
+    /*
+      Accettiamo solo numeri interi positivi
+      oppure campo vuoto mentre Elena sta digitando.
+    */
+    if (value === "" || /^\d+$/.test(value)) {
+      setQuantities((previous) => ({
+        ...previous,
+        [productId]: value,
+      }));
+    }
+  };
 
-    setQuantities((current) => ({
-      ...current,
-      [productId]:
-        Number.isNaN(parsed) || parsed < 0
-          ? 0
-          : Math.floor(parsed),
-    }));
+  const handleQuantityBlur = (productId: string) => {
+    /*
+      Se Elena lascia il campo vuoto,
+      quando esce dall'input lo riportiamo a 0.
+    */
+    if (quantities[productId] === "") {
+      setQuantities((previous) => ({
+        ...previous,
+        [productId]: "0",
+      }));
+    }
   };
 
   const saveInventory = async () => {
@@ -141,7 +173,7 @@ export default function InventoryPage() {
         product_name: item.product_name,
         variant: item.variant,
         category: item.category,
-        quantity: quantities[item.product_id] || 0,
+        quantity: getNumericQuantity(item.product_id),
         updated_at: new Date().toISOString(),
       }));
 
@@ -149,11 +181,23 @@ export default function InventoryPage() {
         .from("inventory")
         .upsert(updates);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       setSaved(true);
 
-      await loadInventory();
+      /*
+        Aggiorniamo anche lo stato locale senza
+        far lampeggiare tutta la pagina.
+      */
+      setInventory((current) =>
+        current.map((item) => ({
+          ...item,
+          quantity: getNumericQuantity(item.product_id),
+          updated_at: new Date().toISOString(),
+        }))
+      );
 
       setTimeout(() => {
         setSaved(false);
@@ -178,34 +222,35 @@ export default function InventoryPage() {
     (item) => item.category === "honey"
   );
 
-  const totalStock = Object.values(quantities).reduce(
-    (sum, quantity) => sum + quantity,
+  const totalStock = inventory.reduce(
+    (sum, item) =>
+      sum + getNumericQuantity(item.product_id),
     0
   );
 
   const wineStock = wines.reduce(
     (sum, item) =>
-      sum + (quantities[item.product_id] || 0),
+      sum + getNumericQuantity(item.product_id),
     0
   );
 
   const honeyStock = honey.reduce(
     (sum, item) =>
-      sum + (quantities[item.product_id] || 0),
+      sum + getNumericQuantity(item.product_id),
     0
   );
 
   const renderItem = (item: InventoryItem) => {
-    const quantity =
-      quantities[item.product_id] || 0;
+    const quantity = quantities[item.product_id] ?? "0";
 
     return (
       <div
         key={item.id}
-        className="flex items-center gap-4 border-b border-black/[0.045] py-4 last:border-0"
+        className="flex items-center gap-3 border-b border-black/[0.045] py-4 last:border-0"
       >
+        {/* FOTO */}
         <div
-          className={`relative h-[66px] w-[66px] shrink-0 overflow-hidden rounded-[20px] ${
+          className={`relative h-[62px] w-[62px] shrink-0 overflow-hidden rounded-[19px] ${
             item.category === "wine"
               ? "bg-[#EEE5DA]"
               : "bg-[#F0EDDF]"
@@ -222,6 +267,7 @@ export default function InventoryPage() {
           />
         </div>
 
+        {/* NOME */}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">
             {item.product_name}
@@ -235,33 +281,38 @@ export default function InventoryPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* QUANTITÀ */}
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={() => decrease(item.product_id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F1EEE7] text-[#514C46]"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F1EEE7] text-[#514C46] active:scale-95"
           >
             <Minus size={16} />
           </button>
 
           <input
-            type="number"
-            min="0"
+            type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
             value={quantity}
             onChange={(e) =>
-              setQuantity(
+              handleQuantityChange(
                 item.product_id,
                 e.target.value
               )
             }
-            className="h-10 w-14 rounded-[14px] border border-black/[0.06] bg-[#FCFAF5] text-center text-sm font-semibold outline-none"
+            onBlur={() =>
+              handleQuantityBlur(item.product_id)
+            }
+            onFocus={(e) => e.currentTarget.select()}
+            className="h-10 w-[58px] rounded-[14px] border border-black/[0.07] bg-[#FCFAF5] text-center text-base font-semibold outline-none focus:border-[#6F2636]/40 focus:ring-2 focus:ring-[#6F2636]/10"
           />
 
           <button
             type="button"
             onClick={() => increase(item.product_id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#6F2636] text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#6F2636] text-white active:scale-95"
           >
             <Plus size={16} />
           </button>
@@ -282,7 +333,13 @@ export default function InventoryPage() {
 
   return (
     <main className="min-h-screen bg-[#FCFAF5] text-[#211F1C]">
-      <div className="mx-auto max-w-md px-5 pb-44 pt-6">
+
+      {/*
+        pb molto grande perché sotto abbiamo:
+        - pulsante Salva
+        - BottomNav
+      */}
+      <div className="mx-auto max-w-md px-5 pb-56 pt-6">
 
         {/* HEADER */}
         <header>
@@ -315,13 +372,13 @@ export default function InventoryPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-[#817B73]">
-            Aggiorna direttamente le quantità
-            disponibili.
+            Inserisci e aggiorna le quantità disponibili.
           </p>
         </header>
 
         {/* SUMMARY */}
         <section className="mt-7 overflow-hidden rounded-[32px] bg-[#641F30] p-6 text-white shadow-[0_20px_50px_rgba(91,28,42,0.18)]">
+
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">
             Disponibilità totale
           </p>
@@ -335,6 +392,7 @@ export default function InventoryPage() {
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-3">
+
             <div className="rounded-[20px] bg-white/10 p-4">
               <p className="text-xs text-white/55">
                 Vino
@@ -354,10 +412,11 @@ export default function InventoryPage() {
                 {honeyStock}
               </p>
             </div>
+
           </div>
         </section>
 
-        {/* WINE */}
+        {/* VINO */}
         <section className="mt-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6F2636]">
             Cantina
@@ -372,7 +431,7 @@ export default function InventoryPage() {
           </div>
         </section>
 
-        {/* HONEY */}
+        {/* MIELE */}
         <section className="mt-10">
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#657052]">
             Dalla Tenuta
@@ -396,13 +455,14 @@ export default function InventoryPage() {
       </div>
 
       {/* SAVE BAR */}
-      <div className="fixed bottom-[72px] left-0 right-0 z-40 px-5">
-        <div className="mx-auto max-w-md">
+      <div className="fixed bottom-[82px] left-0 right-0 z-40 px-5">
+        <div className="mx-auto max-w-md rounded-[26px] bg-[#FCFAF5]/95 p-2 backdrop-blur-xl">
+
           <button
             type="button"
             onClick={saveInventory}
             disabled={saving}
-            className={`flex w-full items-center justify-center gap-2 rounded-[22px] px-5 py-[17px] font-semibold text-white shadow-[0_10px_30px_rgba(111,38,54,0.22)] ${
+            className={`flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[20px] px-5 py-4 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(111,38,54,0.22)] ${
               saved
                 ? "bg-[#657052]"
                 : "bg-[#6F2636]"
@@ -410,18 +470,19 @@ export default function InventoryPage() {
           >
             {saved ? (
               <>
-                <Check size={18} />
+                <Check size={19} />
                 Magazzino salvato
               </>
             ) : (
               <>
-                <Save size={18} />
+                <Save size={19} />
                 {saving
                   ? "Salvataggio..."
                   : "Salva magazzino"}
               </>
             )}
           </button>
+
         </div>
       </div>
 
