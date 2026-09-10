@@ -171,6 +171,12 @@ export default async function OrdersPage() {
         >
           + Registra una vendita
         </Link>
+        <Link
+          href="/reports"
+          className="mt-3 flex w-full items-center justify-center rounded-[23px] border border-[#6F2636]/15 bg-white px-5 py-[16px] font-semibold text-[#6F2636]"
+        >
+          Report vendite ed Excel
+        </Link>
 
         {/* NESSUN ORDINE */}
         {orders.length === 0 ? (
