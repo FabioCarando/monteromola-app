@@ -9,6 +9,7 @@ import {
   Minus,
   Plus,
   ShoppingBag,
+  Package,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -18,14 +19,22 @@ type Product = {
   id: string;
   name: string;
   variant?: string;
-  category: "wine" | "honey";
-  price: number;
-  image: string;
+  category: "wine" | "honey" | "packaging";
+  image?: string;
 };
 
 type InventoryRow = {
   product_id: string;
+  product_name: string;
+  variant: string | null;
+  category: string;
   quantity: number;
+  price: number;
+};
+
+type InventoryData = {
+  quantity: number;
+  price: number;
 };
 
 const products: Product[] = [
@@ -33,21 +42,18 @@ const products: Product[] = [
     id: "onelia",
     name: "Onelia",
     category: "wine",
-    price: 15,
     image: "/onelia.png",
   },
   {
     id: "gea",
     name: "Gea",
     category: "wine",
-    price: 12,
     image: "/gea.png",
   },
   {
     id: "giulio",
     name: "Giulio",
     category: "wine",
-    price: 18,
     image: "/giulio.png",
   },
 
@@ -56,7 +62,6 @@ const products: Product[] = [
     name: "Acacia",
     variant: "250g",
     category: "honey",
-    price: 6,
     image: "/acacia.png",
   },
   {
@@ -64,7 +69,6 @@ const products: Product[] = [
     name: "Acacia",
     variant: "500g",
     category: "honey",
-    price: 11,
     image: "/acacia.png",
   },
 
@@ -73,7 +77,6 @@ const products: Product[] = [
     name: "Millefiori",
     variant: "250g",
     category: "honey",
-    price: 6,
     image: "/millefiori.png",
   },
   {
@@ -81,7 +84,6 @@ const products: Product[] = [
     name: "Millefiori",
     variant: "500g",
     category: "honey",
-    price: 11,
     image: "/millefiori.png",
   },
 
@@ -90,7 +92,6 @@ const products: Product[] = [
     name: "Melata",
     variant: "250g",
     category: "honey",
-    price: 7,
     image: "/melata.png",
   },
   {
@@ -98,8 +99,18 @@ const products: Product[] = [
     name: "Melata",
     variant: "500g",
     category: "honey",
-    price: 11,
     image: "/melata.png",
+  },
+
+  {
+    id: "box-wine",
+    name: "Scatola vino",
+    category: "packaging",
+  },
+  {
+    id: "box-honey",
+    name: "Scatola miele",
+    category: "packaging",
   },
 ];
 
@@ -114,7 +125,7 @@ export default function NewSalePage() {
   >({});
 
   const [inventory, setInventory] = useState<
-    Record<string, number>
+    Record<string, InventoryData>
   >({});
 
   const [loadingInventory, setLoadingInventory] =
@@ -129,47 +140,72 @@ export default function NewSalePage() {
   }, []);
 
   async function loadInventory() {
-    setLoadingInventory(true);
+    try {
+      setLoadingInventory(true);
+      setErrorMessage("");
 
-    const { data, error } = await supabase
-      .from("inventory")
-      .select("product_id, quantity");
+      const { data, error } = await supabase
+        .from("inventory")
+        .select(`
+          product_id,
+          product_name,
+          variant,
+          category,
+          quantity,
+          price
+        `);
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      const stock: Record<string, InventoryData> = {};
+
+      ((data || []) as InventoryRow[]).forEach((row) => {
+        stock[row.product_id] = {
+          quantity: Number(row.quantity) || 0,
+          price: Number(row.price) || 0,
+        };
+      });
+
+      setInventory(stock);
+    } catch (error) {
       console.error(error);
+
       setErrorMessage(
-        "Non è stato possibile caricare il magazzino."
+        "Non è stato possibile caricare prodotti e prezzi."
       );
+    } finally {
       setLoadingInventory(false);
-      return;
     }
-
-    const stock: Record<string, number> = {};
-
-    (data as InventoryRow[] | null)?.forEach((row) => {
-      stock[row.product_id] =
-        Number(row.quantity) || 0;
-    });
-
-    setInventory(stock);
-    setLoadingInventory(false);
   }
 
   function getQuantity(productId: string) {
     return quantities[productId] || 0;
   }
 
-  function increase(productId: string) {
-    const current = getQuantity(productId);
-    const available = inventory[productId] || 0;
+  function getAvailable(productId: string) {
+    return inventory[productId]?.quantity || 0;
+  }
 
-    if (current >= available) {
-      return;
+  function getPrice(productId: string) {
+    return inventory[productId]?.price || 0;
+  }
+
+  function increase(product: Product) {
+    const current = getQuantity(product.id);
+
+    if (product.category !== "packaging") {
+      const available = getAvailable(product.id);
+
+      if (current >= available) {
+        return;
+      }
     }
 
     setQuantities((prev) => ({
       ...prev,
-      [productId]: current + 1,
+      [product.id]: current + 1,
     }));
   }
 
@@ -191,8 +227,9 @@ export default function NewSalePage() {
       .map((product) => ({
         ...product,
         quantity: quantities[product.id] || 0,
+        price: inventory[product.id]?.price || 0,
       }));
-  }, [quantities]);
+  }, [quantities, inventory]);
 
   const saleTotal = useMemo(() => {
     return selectedItems.reduce(
@@ -209,11 +246,19 @@ export default function NewSalePage() {
     );
   }, [selectedItems]);
 
+  const selectedProductsOnly = selectedItems.filter(
+    (item) => item.category !== "packaging"
+  );
+
+  const selectedPackaging = selectedItems.filter(
+    (item) => item.category === "packaging"
+  );
+
   const currentWineStock = products
     .filter((product) => product.category === "wine")
     .reduce(
       (sum, product) =>
-        sum + (inventory[product.id] || 0),
+        sum + getAvailable(product.id),
       0
     );
 
@@ -221,15 +266,15 @@ export default function NewSalePage() {
     .filter((product) => product.category === "honey")
     .reduce(
       (sum, product) =>
-        sum + (inventory[product.id] || 0),
+        sum + getAvailable(product.id),
       0
     );
 
   const remainingWineStock = products
     .filter((product) => product.category === "wine")
     .reduce((sum, product) => {
-      const available = inventory[product.id] || 0;
-      const selling = quantities[product.id] || 0;
+      const available = getAvailable(product.id);
+      const selling = getQuantity(product.id);
 
       return sum + Math.max(available - selling, 0);
     }, 0);
@@ -237,8 +282,8 @@ export default function NewSalePage() {
   const remainingHoneyStock = products
     .filter((product) => product.category === "honey")
     .reduce((sum, product) => {
-      const available = inventory[product.id] || 0;
-      const selling = quantities[product.id] || 0;
+      const available = getAvailable(product.id);
+      const selling = getQuantity(product.id);
 
       return sum + Math.max(available - selling, 0);
     }, 0);
@@ -254,8 +299,8 @@ export default function NewSalePage() {
       return;
     }
 
-    for (const item of selectedItems) {
-      const available = inventory[item.id] || 0;
+    for (const item of selectedProductsOnly) {
+      const available = getAvailable(item.id);
 
       if (item.quantity > available) {
         setErrorMessage(
@@ -264,6 +309,16 @@ export default function NewSalePage() {
               ? ` ${item.variant}`
               : ""
           }.`
+        );
+
+        return;
+      }
+    }
+
+    for (const item of selectedItems) {
+      if (item.price < 0) {
+        setErrorMessage(
+          `Controlla il prezzo di ${item.name}.`
         );
         return;
       }
@@ -287,8 +342,17 @@ export default function NewSalePage() {
             total: saleTotal,
             payment_method: paymentMethod,
             payment_status: "Pagato",
-            box_quantity: 0,
-            box_cost: 0,
+            box_quantity: selectedPackaging.reduce(
+              (sum, item) =>
+                sum + item.quantity,
+              0
+            ),
+            box_cost: selectedPackaging.reduce(
+              (sum, item) =>
+                sum +
+                item.quantity * item.price,
+              0
+            ),
             notes: notes.trim() || null,
           })
           .select()
@@ -299,7 +363,7 @@ export default function NewSalePage() {
       }
 
       /*
-       * 2. CREA LE RIGHE DELLA VENDITA
+       * 2. SALVA TUTTI GLI ARTICOLI
        */
 
       const orderItems = selectedItems.map(
@@ -323,10 +387,10 @@ export default function NewSalePage() {
       }
 
       /*
-       * 3. SCALA IL MAGAZZINO
+       * 3. SCALA SOLO VINO E MIELE DAL MAGAZZINO
        */
 
-      for (const item of selectedItems) {
+      for (const item of selectedProductsOnly) {
         const { error: stockError } =
           await supabase.rpc(
             "decrement_inventory",
@@ -342,7 +406,7 @@ export default function NewSalePage() {
       }
 
       /*
-       * 4. RICARICA IL MAGAZZINO
+       * 4. RICARICA STOCK
        */
 
       await loadInventory();
@@ -376,32 +440,58 @@ export default function NewSalePage() {
   }: {
     product: Product;
   }) {
-    const quantity =
-      quantities[product.id] || 0;
+    const quantity = getQuantity(product.id);
+    const price = getPrice(product.id);
 
-    const available =
-      inventory[product.id] || 0;
+    const isPackaging =
+      product.category === "packaging";
 
-    const remaining = Math.max(
-      available - quantity,
-      0
-    );
+    const available = isPackaging
+      ? null
+      : getAvailable(product.id);
 
-    const soldOut = available === 0;
+    const remaining =
+      available === null
+        ? null
+        : Math.max(available - quantity, 0);
+
+    const soldOut =
+      !isPackaging && available === 0;
 
     return (
       <div className="rounded-[25px] bg-white p-4 shadow-[0_8px_30px_rgba(30,26,21,0.035)]">
+
         <div className="flex items-center gap-4">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[20px] bg-[#F2EEE6]">
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-contain p-1"
-            />
+
+          <div
+            className={`relative flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[20px] ${
+              product.category === "wine"
+                ? "bg-[#F2EEE6]"
+                : product.category === "honey"
+                ? "bg-[#F3F0E3]"
+                : "bg-[#EEEAE4]"
+            }`}
+          >
+
+            {isPackaging ? (
+              <Package
+                size={30}
+                strokeWidth={1.5}
+                className="text-[#6F2636]"
+              />
+            ) : (
+              <Image
+                src={product.image!}
+                alt={product.name}
+                fill
+                className="object-contain p-1"
+              />
+            )}
+
           </div>
 
           <div className="min-w-0 flex-1">
+
             <p className="font-semibold">
               {product.name}
             </p>
@@ -410,35 +500,63 @@ export default function NewSalePage() {
               {product.variant
                 ? `${product.variant} · `
                 : ""}
-              €{product.price.toFixed(2)}
+              €{price.toFixed(2)}
             </p>
 
-            <p
-              className={`mt-2 text-xs font-semibold ${
-                soldOut
-                  ? "text-red-500"
-                  : remaining <= 5
-                  ? "text-orange-500"
-                  : "text-[#657052]"
-              }`}
-            >
-              {soldOut
-                ? "Esaurito"
-                : `Disponibili: ${available}`}
-            </p>
+            {!isPackaging && (
+              <p
+                className={`mt-2 text-xs font-semibold ${
+                  soldOut
+                    ? "text-red-500"
+                    : (remaining || 0) <= 5
+                    ? "text-orange-500"
+                    : "text-[#657052]"
+                }`}
+              >
+                {soldOut
+                  ? "Esaurito"
+                  : `${available} disponibili`}
+              </p>
+            )}
+
+            {isPackaging && (
+              <p className="mt-2 text-xs font-semibold text-[#8C7563]">
+                Confezione
+              </p>
+            )}
+
           </div>
+
         </div>
 
         <div className="mt-4 flex items-center justify-between">
 
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-[#969087]">
-              Dopo vendita
-            </p>
 
-            <p className="mt-1 text-sm font-semibold">
-              {remaining} rimasti
-            </p>
+            {!isPackaging && (
+              <>
+                <p className="text-[10px] uppercase tracking-widest text-[#969087]">
+                  Dopo vendita
+                </p>
+
+                <p className="mt-1 text-sm font-semibold">
+                  {remaining} rimasti
+                </p>
+              </>
+            )}
+
+            {isPackaging && (
+              <>
+                <p className="text-[10px] uppercase tracking-widest text-[#969087]">
+                  Totale scatole
+                </p>
+
+                <p className="mt-1 text-sm font-semibold">
+                  €{(price * quantity).toFixed(2)}
+                </p>
+              </>
+            )}
+
           </div>
 
           <div className="flex items-center gap-3">
@@ -461,11 +579,12 @@ export default function NewSalePage() {
             <button
               type="button"
               onClick={() =>
-                increase(product.id)
+                increase(product)
               }
               disabled={
                 soldOut ||
-                quantity >= available
+                (!isPackaging &&
+                  quantity >= (available || 0))
               }
               className="flex h-11 w-11 items-center justify-center rounded-full bg-[#6F2636] text-white disabled:opacity-30"
             >
@@ -473,7 +592,9 @@ export default function NewSalePage() {
             </button>
 
           </div>
+
         </div>
+
       </div>
     );
   }
@@ -495,12 +616,11 @@ export default function NewSalePage() {
           </h1>
 
           <p className="mt-3 text-center text-sm text-[#817B73]">
-            Il magazzino è stato aggiornato automaticamente.
+            Vendita e magazzino aggiornati.
           </p>
 
-          {/* VENDITA */}
-
           <div className="mt-8 rounded-[28px] bg-[#6F2636] p-6 text-white">
+
             <p className="text-xs uppercase tracking-[0.18em] text-white/55">
               Totale vendita
             </p>
@@ -510,11 +630,10 @@ export default function NewSalePage() {
             </p>
 
             <p className="mt-2 text-sm text-white/60">
-              {selectedQuantity} prodotti venduti
+              {selectedQuantity} articoli
             </p>
-          </div>
 
-          {/* RIMANENZE */}
+          </div>
 
           <div className="mt-5 rounded-[28px] bg-white p-6 shadow-sm">
 
@@ -525,6 +644,7 @@ export default function NewSalePage() {
             <div className="mt-4 flex items-end justify-between">
 
               <div>
+
                 <p className="text-sm text-[#8A847D]">
                   Prodotti rimanenti
                 </p>
@@ -533,6 +653,7 @@ export default function NewSalePage() {
                   {currentWineStock +
                     currentHoneyStock}
                 </p>
+
               </div>
 
               <ShoppingBag
@@ -565,6 +686,7 @@ export default function NewSalePage() {
               </div>
 
             </div>
+
           </div>
 
           <button
@@ -585,6 +707,7 @@ export default function NewSalePage() {
         </div>
 
         <BottomNav />
+
       </main>
     );
   }
@@ -593,8 +716,6 @@ export default function NewSalePage() {
     <main className="min-h-screen bg-[#FCFAF5] text-[#211F1C]">
 
       <div className="mx-auto max-w-md px-5 pb-40 pt-6">
-
-        {/* HEADER */}
 
         <header>
 
@@ -629,8 +750,6 @@ export default function NewSalePage() {
           </h1>
 
         </header>
-
-        {/* MAGAZZINO */}
 
         <section className="mt-7 rounded-[28px] bg-[#211F1C] p-5 text-white">
 
@@ -691,8 +810,6 @@ export default function NewSalePage() {
 
         </section>
 
-        {/* CLIENTE */}
-
         <section className="mt-8">
 
           <label className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8B857D]">
@@ -711,8 +828,6 @@ export default function NewSalePage() {
 
         </section>
 
-        {/* VINO */}
-
         <section className="mt-9">
 
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6F2636]">
@@ -724,6 +839,7 @@ export default function NewSalePage() {
           </h2>
 
           <div className="mt-4 space-y-3">
+
             {products
               .filter(
                 (product) =>
@@ -735,11 +851,10 @@ export default function NewSalePage() {
                   product={product}
                 />
               ))}
+
           </div>
 
         </section>
-
-        {/* MIELE */}
 
         <section className="mt-10">
 
@@ -752,6 +867,7 @@ export default function NewSalePage() {
           </h2>
 
           <div className="mt-4 space-y-3">
+
             {products
               .filter(
                 (product) =>
@@ -763,11 +879,38 @@ export default function NewSalePage() {
                   product={product}
                 />
               ))}
+
           </div>
 
         </section>
 
-        {/* PAGAMENTO */}
+        <section className="mt-10">
+
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8C7563]">
+            Packaging
+          </p>
+
+          <h2 className="monteromola-serif mt-1 text-[29px]">
+            Scatole
+          </h2>
+
+          <div className="mt-4 space-y-3">
+
+            {products
+              .filter(
+                (product) =>
+                  product.category === "packaging"
+              )
+              .map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                />
+              ))}
+
+          </div>
+
+        </section>
 
         <section className="mt-10">
 
@@ -803,8 +946,6 @@ export default function NewSalePage() {
 
         </section>
 
-        {/* NOTE */}
-
         <section className="mt-8">
 
           <label className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8B857D]">
@@ -829,13 +970,11 @@ export default function NewSalePage() {
           </div>
         )}
 
-        {/* RIEPILOGO */}
-
         <section className="mt-8 rounded-[28px] bg-white p-5 shadow-sm">
 
           <div className="flex justify-between text-sm">
             <span className="text-[#8C867F]">
-              Prodotti
+              Articoli
             </span>
 
             <span className="font-semibold">
@@ -870,8 +1009,6 @@ export default function NewSalePage() {
           </div>
 
         </section>
-
-        {/* REGISTRA */}
 
         <button
           type="button"
