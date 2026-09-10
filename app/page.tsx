@@ -275,53 +275,71 @@ export default async function HomePage() {
 
       <section className="mx-5 mt-7">
 
-        <div className="relative min-h-[375px] overflow-hidden rounded-[34px] bg-[#6F2636] shadow-[0_20px_50px_rgba(91,28,42,0.14)]">
+        <div className="relative min-h-[410px] overflow-hidden rounded-[36px] bg-[#4D1723] shadow-[0_28px_70px_rgba(73,29,39,0.22)]">
 
           <Image
             src="/uva1.png"
             alt="Tenuta Monteromola"
             fill
             priority
-            className="object-cover"
+            className="object-cover scale-[1.03]"
           />
 
-          <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/30 to-transparent" />
+          {/* OVERLAY */}
+          <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(24,16,15,0.78)_0%,rgba(34,22,20,0.48)_45%,rgba(34,22,20,0.08)_78%)]" />
 
-          <div className="absolute inset-x-0 bottom-0 top-0 flex flex-col justify-between p-6">
+          {/* GLOW */}
+          <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
+
+          {/* CONTENT */}
+          <div className="absolute inset-0 flex flex-col justify-between p-6">
 
             <div>
 
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/65">
-                La Tenuta
-              </p>
+              <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.08] px-3 py-1.5 backdrop-blur-xl">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-white/70">
+                  Tenuta Monteromola
+                </p>
+              </div>
 
-              <h2 className="monteromola-serif mt-3 max-w-[260px] text-[38px] leading-[0.98] text-white">
-                Gesti antichi,
+              <h2 className="monteromola-serif mt-5 max-w-[260px] text-[43px] leading-[0.95] tracking-[-0.03em] text-white">
+                Terra,
                 <br />
-                sapori veri.
+                vino,
+                <br />
+                autenticità.
               </h2>
 
-              <p className="mt-4 max-w-[230px] text-sm leading-6 text-white/65">
-                Vino e miele dalla nostra Tenuta.
+              <p className="mt-5 max-w-[220px] text-sm leading-6 text-white/60">
+                Una piccola tenuta, prodotti veri e una storia da raccontare.
               </p>
 
             </div>
 
-            <Link
-              href="/sales/new"
-              className="flex w-fit items-center gap-3 rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#6F2636]"
-            >
-              <Plus
-                size={17}
-                strokeWidth={2}
-              />
+            <div className="flex items-end justify-between">
 
-              Registra una vendita
-            </Link>
+              <Link
+                href="/sales/new"
+                className="flex items-center gap-3 rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#5F2030] shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
+              >
+                <Plus
+                  size={17}
+                  strokeWidth={2}
+                />
+
+                Nuova vendita
+              </Link>
+
+              <div className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-[10px] text-white/60 backdrop-blur-xl">
+                Vino · Miele
+              </div>
+
+            </div>
 
           </div>
 
-          <div className="absolute bottom-0 right-[-30px] h-[255px] w-[145px] opacity-95">
+          {/* BOTTIGLIA */}
+          <div className="absolute bottom-[-20px] right-[-8px] h-[310px] w-[145px] drop-shadow-[0_20px_30px_rgba(0,0,0,0.32)]">
 
             <Image
               src="/onelia.png"
@@ -335,49 +353,32 @@ export default async function HomePage() {
         </div>
 
       </section>
-
       {/* PERFORMANCE VENDITE */}
 
-      <section className="mx-5 mt-9">
+      <section className="mx-5 mt-10">
 
-        <div className="flex items-end justify-between">
-
-          <div>
-
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6F2636]">
-              Questo mese
-            </p>
-
-            <h2 className="monteromola-serif mt-1 text-[28px]">
-              Come vanno le vendite
-            </h2>
-
-          </div>
-
-        </div>
-
-        <div className="mt-4 rounded-[28px] bg-white p-5 shadow-[0_8px_30px_rgba(30,26,21,0.04)]">
+        <div className="overflow-hidden rounded-[32px] bg-[#5F2030] p-6 text-white shadow-[0_25px_60px_rgba(82,42,48,0.14)]">
 
           <div className="flex items-start justify-between">
 
             <div>
 
-              <p className="text-xs text-[#918B83]">
-                Fatturato
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/50">
+                Performance
               </p>
 
-              <p className="monteromola-serif mt-1 text-[38px] leading-none text-[#211F1C]">
-                €{monthRevenue.toFixed(0)}
-              </p>
+              <h2 className="monteromola-serif mt-2 text-[31px] leading-none">
+                Questo mese
+              </h2>
 
             </div>
 
             {revenueChange !== null && (
               <div
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur-xl ${
                   revenueChange >= 0
-                    ? "bg-[#EEF1E7] text-[#657052]"
-                    : "bg-[#F7E9E9] text-[#9B4545]"
+                    ? "bg-white/10 text-[#DDE4CE]"
+                    : "bg-white/10 text-[#F2C8C8]"
                 }`}
               >
                 {revenueChange >= 0 ? "+" : ""}
@@ -387,27 +388,39 @@ export default async function HomePage() {
 
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
+          <div className="mt-8">
 
-            <div className="rounded-[19px] bg-[#F8F5EF] p-4">
+            <p className="text-xs text-white/50">
+              Fatturato
+            </p>
 
-              <p className="text-xs text-[#918B83]">
+            <p className="monteromola-serif mt-1 text-[50px] leading-none">
+              €{monthRevenue.toFixed(0)}
+            </p>
+
+          </div>
+
+          <div className="mt-7 grid grid-cols-2 gap-3">
+
+            <div className="rounded-[20px] border border-white/[0.06] bg-white/[0.08] p-4 backdrop-blur-xl">
+
+              <p className="text-xs text-white/45">
                 Vendite
               </p>
 
-              <p className="mt-1 text-xl font-semibold">
+              <p className="mt-1 text-2xl font-semibold">
                 {monthOrders}
               </p>
 
             </div>
 
-            <div className="rounded-[19px] bg-[#F8F5EF] p-4">
+            <div className="rounded-[20px] border border-white/[0.06] bg-white/[0.08] p-4 backdrop-blur-xl">
 
-              <p className="text-xs text-[#918B83]">
+              <p className="text-xs text-white/45">
                 Media vendita
               </p>
 
-              <p className="mt-1 text-xl font-semibold">
+              <p className="mt-1 text-2xl font-semibold">
                 €{averageOrder.toFixed(0)}
               </p>
 
@@ -415,9 +428,17 @@ export default async function HomePage() {
 
           </div>
 
-          <p className="mt-4 text-[11px] text-[#A09A92]">
-            Confronto del fatturato con il mese precedente
-          </p>
+          <div className="mt-5 flex items-center justify-between">
+
+            <p className="text-[11px] text-white/35">
+              Confronto con il mese precedente
+            </p>
+
+            <div className="h-1.5 w-14 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full w-2/3 rounded-full bg-white/50" />
+            </div>
+
+          </div>
 
         </div>
 
