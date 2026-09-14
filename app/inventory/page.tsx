@@ -7,10 +7,10 @@ import {
   ArrowLeft,
   Check,
   Minus,
+  Package,
   Plus,
   Save,
   Warehouse,
-  Euro,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -40,16 +40,14 @@ const productImages: Record<string, string> = {
 
   "melata-250": "/melata.png",
   "melata-500": "/melata.png",
+  "box-wine": "/scatolavino.png",
+  "box-honey": "/scatolamiele.png",
 };
 
 export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
 
   const [quantities, setQuantities] = useState<
-    Record<string, string>
-  >({});
-
-  const [prices, setPrices] = useState<
     Record<string, string>
   >({});
 
@@ -72,8 +70,12 @@ export default function InventoryPage() {
       const { data, error } = await supabase
         .from("inventory")
         .select("*")
-        .order("category", { ascending: false })
-        .order("product_name", { ascending: true });
+        .order("category", {
+          ascending: false,
+        })
+        .order("product_name", {
+          ascending: true,
+        });
 
       if (error) {
         throw error;
@@ -83,21 +85,17 @@ export default function InventoryPage() {
 
       setItems(rows);
 
-      const initialQuantities: Record<string, string> = {};
-      const initialPrices: Record<string, string> = {};
+      const initialQuantities: Record<
+        string,
+        string
+      > = {};
 
       rows.forEach((item) => {
-        initialQuantities[item.product_id] = String(
-          Number(item.quantity) || 0
-        );
-
-        initialPrices[item.product_id] = String(
-          Number(item.price) || 0
-        );
+        initialQuantities[item.product_id] =
+          String(Number(item.quantity) || 0);
       });
 
       setQuantities(initialQuantities);
-      setPrices(initialPrices);
     } catch (error: any) {
       console.error(error);
 
@@ -120,18 +118,6 @@ export default function InventoryPage() {
     return Math.floor(value);
   }
 
-  function numericPrice(productId: string) {
-    const value = Number(
-      String(prices[productId] ?? "0").replace(",", ".")
-    );
-
-    if (Number.isNaN(value) || value < 0) {
-      return 0;
-    }
-
-    return value;
-  }
-
   function changeQuantity(
     productId: string,
     value: string
@@ -141,26 +127,6 @@ export default function InventoryPage() {
 
     if (value === "" || /^\d+$/.test(value)) {
       setQuantities((prev) => ({
-        ...prev,
-        [productId]: value,
-      }));
-    }
-  }
-
-  function changePrice(
-    productId: string,
-    value: string
-  ) {
-    setSaved(false);
-    setMessage("");
-
-    const normalized = value.replace(",", ".");
-
-    if (
-      normalized === "" ||
-      /^\d*\.?\d{0,2}$/.test(normalized)
-    ) {
-      setPrices((prev) => ({
         ...prev,
         [productId]: value,
       }));
@@ -202,15 +168,6 @@ export default function InventoryPage() {
     }
   }
 
-  function handlePriceBlur(productId: string) {
-    const value = numericPrice(productId);
-
-    setPrices((prev) => ({
-      ...prev,
-      [productId]: value.toFixed(2),
-    }));
-  }
-
   async function saveInventory() {
     try {
       setSaving(true);
@@ -223,15 +180,10 @@ export default function InventoryPage() {
           item.product_id
         );
 
-        const price = numericPrice(
-          item.product_id
-        );
-
         const { error } = await supabase
           .from("inventory")
           .update({
             quantity,
-            price,
             updated_at: new Date().toISOString(),
           })
           .eq("id", item.id);
@@ -242,7 +194,7 @@ export default function InventoryPage() {
       }
 
       setSaved(true);
-      setMessage("Magazzino e prezzi salvati");
+      setMessage("Magazzino aggiornato");
 
       await loadInventory();
 
@@ -278,6 +230,14 @@ export default function InventoryPage() {
     [items]
   );
 
+  const boxes = useMemo(
+    () =>
+      items.filter(
+        (item) => item.category === "packaging"
+      ),
+    [items]
+  );
+
   const wineTotal = wines.reduce(
     (sum, item) =>
       sum + numericQuantity(item.product_id),
@@ -290,13 +250,20 @@ export default function InventoryPage() {
     0
   );
 
-  const totalStock = wineTotal + honeyTotal;
+  const boxesTotal = boxes.reduce(
+    (sum, item) =>
+      sum + numericQuantity(item.product_id),
+    0
+  );
+
+  const totalStock =
+    wineTotal + honeyTotal + boxesTotal;
 
   const stockValue = items.reduce(
     (sum, item) =>
       sum +
       numericQuantity(item.product_id) *
-        numericPrice(item.product_id),
+        Number(item.price || 0),
     0
   );
 
@@ -308,21 +275,21 @@ export default function InventoryPage() {
     const quantityValue =
       quantities[item.product_id] ?? "0";
 
-    const priceValue =
-      prices[item.product_id] ?? "0";
-
     return (
       <div className="rounded-[26px] bg-white p-4 shadow-[0_8px_30px_rgba(30,26,21,0.04)]">
 
         <div className="flex items-center gap-4">
 
           <div
-            className={`relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-[20px] ${
+            className={`relative flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-[20px] ${
               item.category === "wine"
                 ? "bg-[#F2ECE5]"
-                : "bg-[#F1F0E6]"
+                : item.category === "honey"
+                ? "bg-[#F1F0E6]"
+                : "bg-[#EEEAE4]"
             }`}
           >
+
             <Image
               src={
                 productImages[item.product_id] ||
@@ -330,8 +297,9 @@ export default function InventoryPage() {
               }
               alt={item.product_name}
               fill
-              className="object-contain p-1"
+              className="object-contain p-2"
             />
+
           </div>
 
           <div className="min-w-0 flex-1">
@@ -344,17 +312,28 @@ export default function InventoryPage() {
               {item.variant ||
                 (item.category === "wine"
                   ? "Vino"
-                  : "Miele")}
+                  : item.category === "honey"
+                  ? "Miele"
+                  : "Confezione")}
             </p>
 
             <div className="mt-2 flex items-center gap-3 text-xs font-semibold">
-              <span className="text-[#657052]">
-                {numericQuantity(item.product_id)} disponibili
+
+              <span
+                className={
+                  numericQuantity(
+                    item.product_id
+                  ) > 0
+                    ? "text-[#657052]"
+                    : "text-[#A14E4E]"
+                }
+              >
+                {numericQuantity(
+                  item.product_id
+                )}{" "}
+                disponibili
               </span>
 
-              <span className="text-[#6F2636]">
-                €{numericPrice(item.product_id).toFixed(2)}
-              </span>
             </div>
 
           </div>
@@ -394,7 +373,9 @@ export default function InventoryPage() {
                 )
               }
               onBlur={() =>
-                handleQuantityBlur(item.product_id)
+                handleQuantityBlur(
+                  item.product_id
+                )
               }
               onFocus={(e) =>
                 e.currentTarget.select()
@@ -412,44 +393,6 @@ export default function InventoryPage() {
             >
               <Plus size={20} />
             </button>
-
-          </div>
-
-        </div>
-
-        {/* PREZZO */}
-
-        <div className="mt-4">
-
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#918B83]">
-            Prezzo unitario
-          </p>
-
-          <div className="relative">
-
-            <Euro
-              size={17}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6F2636]"
-            />
-
-            <input
-              type="text"
-              inputMode="decimal"
-              value={priceValue}
-              onChange={(e) =>
-                changePrice(
-                  item.product_id,
-                  e.target.value
-                )
-              }
-              onBlur={() =>
-                handlePriceBlur(item.product_id)
-              }
-              onFocus={(e) =>
-                e.currentTarget.select()
-              }
-              className="h-12 w-full rounded-[18px] border border-black/[0.08] bg-[#FCFAF5] pl-11 pr-4 text-base font-semibold text-[#211F1C] outline-none focus:border-[#6F2636]/40 focus:ring-2 focus:ring-[#6F2636]/10"
-            />
 
           </div>
 
@@ -512,7 +455,7 @@ export default function InventoryPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-[#817B73]">
-            Controlla quantità e prezzi dei prodotti.
+            Controlla e aggiorna le quantità disponibili.
           </p>
 
         </header>
@@ -534,7 +477,7 @@ export default function InventoryPage() {
               </p>
 
               <p className="mt-2 text-sm text-white/55">
-                prodotti in magazzino
+                articoli in magazzino
               </p>
 
             </div>
@@ -546,11 +489,11 @@ export default function InventoryPage() {
 
           </div>
 
-          <div className="mt-8 grid grid-cols-2 gap-3">
+          <div className="mt-8 grid grid-cols-3 gap-2">
 
-            <div className="rounded-[20px] bg-white/10 p-4">
+            <div className="rounded-[20px] bg-white/10 p-3">
 
-              <p className="text-xs text-white/55">
+              <p className="text-[11px] text-white/55">
                 Vino
               </p>
 
@@ -560,14 +503,26 @@ export default function InventoryPage() {
 
             </div>
 
-            <div className="rounded-[20px] bg-white/10 p-4">
+            <div className="rounded-[20px] bg-white/10 p-3">
 
-              <p className="text-xs text-white/55">
+              <p className="text-[11px] text-white/55">
                 Miele
               </p>
 
               <p className="mt-1 text-2xl font-semibold">
                 {honeyTotal}
+              </p>
+
+            </div>
+
+            <div className="rounded-[20px] bg-white/10 p-3">
+
+              <p className="text-[11px] text-white/55">
+                Scatole
+              </p>
+
+              <p className="mt-1 text-2xl font-semibold">
+                {boxesTotal}
               </p>
 
             </div>
@@ -638,6 +593,56 @@ export default function InventoryPage() {
 
         </section>
 
+        {/* SCATOLE */}
+
+        <section className="mt-10">
+
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8C7563]">
+            Packaging
+          </p>
+
+          <h2 className="monteromola-serif mt-1 text-[30px]">
+            Scatole
+          </h2>
+
+          <p className="mt-2 text-sm leading-6 text-[#817B73]">
+            Gestisci la disponibilità delle confezioni.
+          </p>
+
+          {boxes.length > 0 ? (
+            <div className="mt-4 space-y-3">
+
+              {boxes.map((item) => (
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                />
+              ))}
+
+            </div>
+          ) : (
+            <div className="mt-4 rounded-[24px] bg-white p-5 shadow-[0_8px_30px_rgba(30,26,21,0.04)]">
+
+              <Package
+                size={24}
+                strokeWidth={1.5}
+                className="text-[#6F2636]"
+              />
+
+              <p className="mt-3 text-sm font-semibold">
+                Nessuna scatola configurata
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-[#817B73]">
+                Aggiungi Scatola vino e Scatola miele
+                nella tabella inventory.
+              </p>
+
+            </div>
+          )}
+
+        </section>
+
         {errorMessage && (
           <div className="mt-6 rounded-[20px] bg-red-50 p-4 text-sm text-red-600">
             {errorMessage}
@@ -663,6 +668,7 @@ export default function InventoryPage() {
               : "bg-[#6F2636]"
           } disabled:opacity-50`}
         >
+
           {saved ? (
             <>
               <Check size={19} />
@@ -671,11 +677,13 @@ export default function InventoryPage() {
           ) : (
             <>
               <Save size={19} />
+
               {saving
                 ? "Salvataggio..."
-                : "Salva quantità e prezzi"}
+                : "Salva magazzino"}
             </>
           )}
+
         </button>
 
       </div>

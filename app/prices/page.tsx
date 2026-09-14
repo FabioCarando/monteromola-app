@@ -37,6 +37,8 @@ const productImages: Record<string, string> = {
 
   "melata-250": "/melata.png",
   "melata-500": "/melata.png",
+  "box-wine": "/scatolavino.png",
+  "box-honey": "/scatolamiele.png", 
 };
 
 export default function PricesPage() {
@@ -106,10 +108,7 @@ export default function PricesPage() {
 
   function numericPrice(productId: string) {
     const value = Number(
-      String(prices[productId] || "0").replace(
-        ",",
-        "."
-      )
+      String(prices[productId] || "0").replace(",", ".")
     );
 
     if (Number.isNaN(value) || value < 0) {
@@ -223,14 +222,14 @@ export default function PricesPage() {
   }: {
     item: PriceItem;
   }) {
-    const isBox =
-      item.category === "packaging";
+    const isBox = item.category === "packaging";
 
     return (
       <div className="rounded-[26px] bg-white p-4 shadow-[0_8px_30px_rgba(30,26,21,0.04)]">
 
         <div className="flex items-center gap-4">
 
+          {/* IMMAGINE PRODOTTO */}
           <div
             className={`relative flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-[20px] ${
               item.category === "wine"
@@ -240,25 +239,18 @@ export default function PricesPage() {
                 : "bg-[#EEEAE4]"
             }`}
           >
-            {isBox ? (
-              <Package
-                size={30}
-                strokeWidth={1.5}
-                className="text-[#6F2636]"
-              />
-            ) : (
-              <Image
-                src={
-                  productImages[item.product_id] ||
-                  "/logo-monteromola.png"
-                }
-                alt={item.product_name}
-                fill
-                className="object-contain p-1"
-              />
-            )}
+            <Image
+              src={
+                productImages[item.product_id] ||
+                "/logo-monteromola.png"
+              }
+              alt={item.product_name}
+              fill
+              className="object-contain p-2"
+            />
           </div>
 
+          {/* INFO PRODOTTO */}
           <div className="min-w-0 flex-1">
 
             <p className="text-base font-semibold">
@@ -275,19 +267,18 @@ export default function PricesPage() {
             </p>
 
             <p className="mt-2 text-sm font-semibold text-[#6F2636]">
-              €{numericPrice(
-                item.product_id
-              ).toFixed(2)}
+              €{numericPrice(item.product_id).toFixed(2)}
             </p>
 
           </div>
 
         </div>
 
+        {/* MODIFICA PREZZO */}
         <div className="mt-4">
 
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#918B83]">
-            Prezzo unitario
+            {isBox ? "Costo scatola" : "Prezzo unitario"}
           </p>
 
           <div className="relative">
@@ -300,9 +291,7 @@ export default function PricesPage() {
             <input
               type="text"
               inputMode="decimal"
-              value={
-                prices[item.product_id] ?? ""
-              }
+              value={prices[item.product_id] ?? ""}
               onChange={(e) =>
                 changePrice(
                   item.product_id,
@@ -463,18 +452,34 @@ export default function PricesPage() {
             Scatole
           </h2>
 
-          <p className="mt-2 text-sm text-[#817B73]">
-            Prezzi delle confezioni utilizzati nel calcolo delle vendite.
+          <p className="mt-2 text-sm leading-6 text-[#817B73]">
+            Imposta il costo delle scatole utilizzato
+            automaticamente nelle nuove vendite.
           </p>
 
-          <div className="mt-4 space-y-3">
-            {boxes.map((item) => (
-              <PriceCard
-                key={item.id}
-                item={item}
-              />
-            ))}
-          </div>
+          {boxes.length > 0 ? (
+            <div className="mt-4 space-y-3">
+              {boxes.map((item) => (
+                <PriceCard
+                  key={item.id}
+                  item={item}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-[24px] border border-[#6F2636]/10 bg-white p-5">
+
+              <p className="text-sm font-semibold text-[#211F1C]">
+                Nessuna scatola configurata
+              </p>
+
+              <p className="mt-2 text-xs leading-5 text-[#817B73]">
+                Aggiungi “Scatola vino” e “Scatola miele”
+                nella tabella inventory con categoria packaging.
+              </p>
+
+            </div>
+          )}
 
         </section>
 
