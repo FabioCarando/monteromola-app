@@ -8,6 +8,7 @@ import {
   Plus,
   ReceiptText,
   ShoppingBag,
+  BarChart3,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -438,6 +439,38 @@ export default async function HomePage() {
         </div>
 
       </section>
+
+      {/* ANDAMENTO VENDITE */}
+
+      <Link
+        href="/performance"
+        className="mx-5 mt-4 flex items-center justify-between rounded-[26px] bg-white p-5 shadow-[0_8px_30px_rgba(30,26,21,0.04)] transition active:scale-[0.99]"
+      >
+
+        <div>
+
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6F2636]">
+            Analytics
+          </p>
+
+          <p className="monteromola-serif mt-1 text-[23px]">
+            Andamento vendite
+          </p>
+
+          <p className="mt-1 text-xs text-[#817B73]">
+            Trend, confronto mesi e best seller
+          </p>
+
+        </div>
+
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F2ECE5] text-[#6F2636]">
+          <BarChart3
+            size={19}
+            strokeWidth={1.8}
+          />
+        </div>
+
+      </Link>
 
       {/* ULTIME VENDITE */}
 
