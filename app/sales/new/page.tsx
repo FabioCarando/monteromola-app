@@ -1452,7 +1452,7 @@ export default function NewSalePage() {
             <div className="mt-3 rounded-[18px] bg-[#F4EEE9] px-4 py-3">
 
               <p className="text-xs leading-5 text-[#6F2636]">
-                🎁 I prodotti verranno scalati normalmente dal magazzino, ma l'incasso della vendita sarà €0.
+                I prodotti verranno scalati normalmente dal magazzino, ma l'incasso della vendita sarà €0.
               </p>
 
             </div>
