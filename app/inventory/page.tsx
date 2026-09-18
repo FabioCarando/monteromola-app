@@ -40,8 +40,13 @@ const productImages: Record<string, string> = {
 
   "melata-250": "/melata.png",
   "melata-500": "/melata.png",
-  "box-wine": "/scatolavino.png",
-  "box-honey": "/scatolamiele.png",
+
+  "box-wine-1": "/scatolavino1.png",
+  "box-wine-2": "/scatolavino2.png",
+  "box-wine-3": "/scatolavino3.png",
+
+  "box-honey-1": "/scatolamiele1.png",
+  "box-honey-2": "/scatolamiele2.png",
 };
 
 export default function InventoryPage() {
