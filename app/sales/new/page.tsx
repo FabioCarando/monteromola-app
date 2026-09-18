@@ -157,7 +157,8 @@ export default function NewSalePage() {
     useState(0);
 
   const [isGift, setIsGift] = useState(false);
-
+  const today = new Date().toLocaleDateString("en-CA");
+  const [saleDate, setSaleDate] = useState(today);
   const [quantities, setQuantities] = useState<
     Record<string, number>
   >({});
@@ -520,8 +521,7 @@ export default function NewSalePage() {
       } = await supabase
         .from("orders")
         .insert({
-          order_date:
-            new Date().toISOString(),
+          order_date: `${saleDate}T12:00:00`,
 
           customer:
             customer.trim() ||
@@ -677,6 +677,8 @@ export default function NewSalePage() {
 
     setDiscountPercent(0);
     setIsGift(false);
+
+    setSaleDate(today);
 
     setSuccess(false);
     setErrorMessage("");
@@ -1152,7 +1154,57 @@ export default function NewSalePage() {
           )}
 
         </section>
+        {/* DATA VENDITA */}
 
+        <section className="mt-8">
+
+          <div className="flex items-end justify-between">
+
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6F2636]">
+                Quando
+              </p>
+
+              <h2 className="monteromola-serif mt-1 text-[29px]">
+                Data vendita
+              </h2>
+            </div>
+
+            {saleDate !== today && (
+              <button
+                type="button"
+                onClick={() => setSaleDate(today)}
+                className="text-xs font-semibold text-[#6F2636]"
+              >
+                Oggi
+              </button>
+            )}
+
+          </div>
+
+          <div className="mt-4 rounded-[24px] bg-white p-4 shadow-[0_8px_30px_rgba(30,26,21,0.04)]">
+
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#918B83]">
+              Giorno della vendita
+            </p>
+
+            <input
+              type="date"
+              value={saleDate}
+              max={today}
+              onChange={(e) =>
+                setSaleDate(e.target.value)
+              }
+              className="h-14 w-full rounded-[18px] border border-black/[0.06] bg-[#FCFAF5] px-4 text-base font-semibold text-[#211F1C] outline-none focus:border-[#6F2636]/30"
+            />
+
+            <p className="mt-3 text-xs leading-5 text-[#918B83]">
+              Puoi registrare anche una vendita effettuata in un mese precedente.
+            </p>
+
+          </div>
+
+        </section>
         {/* CLIENTE */}
 
         <section className="mt-8">
@@ -1540,7 +1592,24 @@ export default function NewSalePage() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
             Riepilogo
           </p>
+          <div className="mt-4 flex justify-between text-sm">
 
+          <span className="text-white/50">
+            Data vendita
+          </span>
+
+          <span className="font-semibold">
+            {new Date(`${saleDate}T12:00:00`).toLocaleDateString(
+              "it-IT",
+              {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              }
+            )}
+          </span>
+
+        </div>
           <div className="mt-4 flex justify-between text-sm">
 
             <span className="text-white/50">
