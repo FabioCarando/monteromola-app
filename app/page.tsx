@@ -494,12 +494,17 @@ export default async function HomePage() {
             </div>
 
           </div>
+
+          {/* DA INCASSARE */}
+
           {pendingOrders.length > 0 && (
             <Link
-              href="/orders"
-              className="mt-3 flex items-center justify-between rounded-[20px] border border-[#E8C98E]/15 bg-[#E8C98E]/10 p-4"
+              href="/orders#pending"
+              className="mt-3 flex items-center justify-between rounded-[20px] border border-[#E8C98E]/15 bg-[#E8C98E]/10 p-4 transition active:scale-[0.99]"
             >
+
               <div>
+
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#E8C98E]">
                   Da incassare
                 </p>
@@ -510,19 +515,33 @@ export default async function HomePage() {
                     ? "vendita in attesa"
                     : "vendite in attesa"}
                 </p>
+
               </div>
 
-              <div className="text-right">
-                <p className="text-xl font-semibold text-[#F1D8A7]">
-                  €{pendingRevenue.toFixed(2)}
-                </p>
+              <div className="flex items-center gap-3">
 
-                <p className="mt-1 text-[10px] text-white/35">
-                  Vedi pagamenti →
-                </p>
+                <div className="text-right">
+
+                  <p className="text-xl font-semibold text-[#F1D8A7]">
+                    €{pendingRevenue.toFixed(2)}
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-white/35">
+                    Gestisci pagamenti
+                  </p>
+
+                </div>
+
+                <ChevronRight
+                  size={17}
+                  className="text-[#E8C98E]/70"
+                />
+
               </div>
+
             </Link>
           )}
+
           <div className="mt-5 flex items-center justify-between">
 
             <p className="text-[11px] text-white/35">

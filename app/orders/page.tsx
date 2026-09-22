@@ -138,40 +138,23 @@ function getStatusClasses(
 | CALCOLO NETTO IVA
 |--------------------------------------------------------------------------
 |
-| Prezzi di vendita considerati IVA inclusa.
-|
 | Vino  -> IVA 22%
 | Miele -> IVA 10%
-|
-| Netto = lordo / (1 + IVA)
 |
 */
 
 function calculateNetRevenue(
   order: Order
 ) {
-  /*
-   * Un ordine non pagato NON contribuisce
-   * al guadagno/incasso.
-   */
-
   if (
     order.payment_status !== "Pagato"
   ) {
     return 0;
   }
 
-  /*
-   * I regali non generano ricavo.
-   */
-
   if (order.is_gift) {
     return 0;
   }
-
-  /*
-   * Totale prodotti prima dello sconto.
-   */
 
   let wineGross = 0;
   let honeyGross = 0;
@@ -189,19 +172,9 @@ function calculateNetRevenue(
     ) {
       honeyGross += lineTotal;
     } else {
-      /*
-       * Packaging / scatole.
-       * Nessuna IVA specifica viene
-       * applicata qui.
-       */
       otherGross += lineTotal;
     }
   }
-
-  /*
-   * Applichiamo lo sconto anche
-   * alla base imponibile.
-   */
 
   const discount =
     Number(
@@ -215,19 +188,11 @@ function calculateNetRevenue(
   honeyGross *= discountFactor;
   otherGross *= discountFactor;
 
-  /*
-   * Scorporo IVA.
-   */
-
   const wineNet =
     wineGross / 1.22;
 
   const honeyNet =
     honeyGross / 1.1;
-
-  /*
-   * Per ora packaging resta invariato.
-   */
 
   return (
     wineNet +
@@ -270,7 +235,7 @@ export default async function OrdersPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | ORDINI PAGATI
+  | PAGATI
   |--------------------------------------------------------------------------
   */
 
@@ -282,7 +247,7 @@ export default async function OrdersPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | ORDINI IN ATTESA
+  | IN ATTESA
   |--------------------------------------------------------------------------
   */
 
@@ -306,11 +271,8 @@ export default async function OrdersPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | FATTURATO LORDO INCASSATO
+  | FATTURATO INCASSATO
   |--------------------------------------------------------------------------
-  |
-  | SOLO PAGATI.
-  |
   */
 
   const totalRevenue =
@@ -337,7 +299,7 @@ export default async function OrdersPage() {
 
   /*
   |--------------------------------------------------------------------------
-  | GUADAGNO / RICAVO NETTO IVA
+  | NETTO IVA
   |--------------------------------------------------------------------------
   */
 
@@ -402,8 +364,7 @@ export default async function OrdersPage() {
           </div>
 
           <p className="mt-4 text-sm leading-6 text-neutral-500">
-            Vendite, pagamenti e incassi
-            della Tenuta.
+            Vendite, pagamenti e incassi della Tenuta.
           </p>
 
         </header>
@@ -416,15 +377,12 @@ export default async function OrdersPage() {
 
           <section className="mt-7 overflow-hidden rounded-[30px] bg-[#722F37] p-5 text-white shadow-lg">
 
-            {/* FATTURATO */}
-
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50">
               Fatturato incassato
             </p>
 
             <p className="mt-2 text-[40px] font-semibold leading-none tracking-tight">
-              €
-              {totalRevenue.toFixed(2)}
+              €{totalRevenue.toFixed(2)}
             </p>
 
             <p className="mt-2 text-xs text-white/45">
@@ -440,10 +398,7 @@ export default async function OrdersPage() {
               </p>
 
               <p className="mt-2 text-[28px] font-semibold">
-                €
-                {totalNetRevenue.toFixed(
-                  2
-                )}
+                €{totalNetRevenue.toFixed(2)}
               </p>
 
               <div className="mt-3 flex items-center justify-between">
@@ -453,8 +408,7 @@ export default async function OrdersPage() {
                 </span>
 
                 <span className="text-sm font-semibold text-white/70">
-                  €
-                  {totalVat.toFixed(2)}
+                  €{totalVat.toFixed(2)}
                 </span>
 
               </div>
@@ -495,32 +449,39 @@ export default async function OrdersPage() {
 
             {pendingOrders.length > 0 && (
 
-              <div className="mt-3 rounded-[20px] bg-[#C6924B]/30 p-4">
+              <Link
+                href="#pending"
+                className="mt-3 flex items-center justify-between rounded-[20px] bg-[#C6924B]/30 p-4 transition active:scale-[0.99]"
+              >
 
-                <div className="flex items-center justify-between">
+                <div>
 
-                  <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                    Da incassare
+                  </p>
 
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                      Da incassare
-                    </p>
-
-                    <p className="mt-1 text-xs text-white/45">
-                      Non incluso nel fatturato
-                    </p>
-
-                  </div>
-
-                  <p className="text-xl font-semibold">
-                    €
-                    {pendingRevenue.toFixed(
-                      2
-                    )}
+                  <p className="mt-1 text-xs text-white/45">
+                    {pendingOrders.length}{" "}
+                    {pendingOrders.length === 1
+                      ? "vendita in attesa"
+                      : "vendite in attesa"}
                   </p>
 
                 </div>
 
-              </div>
+                <div className="text-right">
+
+                  <p className="text-xl font-semibold">
+                    €{pendingRevenue.toFixed(2)}
+                  </p>
+
+                  <p className="mt-1 text-[10px] text-white/45">
+                    Gestisci →
+                  </p>
+
+                </div>
+
+              </Link>
 
             )}
 
@@ -570,8 +531,7 @@ export default async function OrdersPage() {
                 </p>
 
                 <p className="mt-1 text-xs text-neutral-400">
-                  Prodotti usciti senza
-                  generare fatturato
+                  Prodotti usciti senza generare fatturato
                 </p>
 
               </div>
@@ -590,7 +550,7 @@ export default async function OrdersPage() {
             NESSUN ORDINE
         ================================================================= */}
 
-        {orders.length === 0 ? (
+        {orders.length === 0 && (
 
           <section className="mt-8 rounded-[28px] bg-white p-7 text-center shadow-sm">
 
@@ -603,8 +563,7 @@ export default async function OrdersPage() {
             </p>
 
             <p className="mt-2 text-sm leading-6 text-neutral-500">
-              Le vendite registrate
-              compariranno qui.
+              Le vendite registrate compariranno qui.
             </p>
 
             <Link
@@ -616,13 +575,232 @@ export default async function OrdersPage() {
 
           </section>
 
-        ) : (
+        )}
 
-          /* ==============================================================
-              STORICO
-          =============================================================== */
+        {/* ================================================================
+            DA INCASSARE
+        ================================================================= */}
 
-          <section className="mt-8">
+        {pendingOrders.length > 0 && (
+
+          <section
+            id="pending"
+            className="mt-8 scroll-mt-6"
+          >
+
+            {/* HEADER */}
+
+            <div className="flex items-end justify-between gap-4">
+
+              <div>
+
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A46E2B]">
+                  Pagamenti
+                </p>
+
+                <h2 className="mt-1 text-2xl font-semibold">
+                  Da incassare
+                </h2>
+
+                <p className="mt-1 text-xs text-neutral-500">
+                  {pendingOrders.length}{" "}
+                  {pendingOrders.length === 1
+                    ? "vendita in attesa"
+                    : "vendite in attesa"}
+                </p>
+
+              </div>
+
+              <div className="text-right">
+
+                <p className="text-[10px] uppercase tracking-[0.14em] text-neutral-400">
+                  Totale
+                </p>
+
+                <p className="mt-1 text-xl font-semibold text-[#A46E2B]">
+                  €{pendingRevenue.toFixed(2)}
+                </p>
+
+              </div>
+
+            </div>
+
+            {/* LISTA */}
+
+            <div className="mt-4 space-y-3">
+
+              {pendingOrders.map((order) => (
+
+                <article
+                  key={order.id}
+                  className="rounded-[26px] border border-[#C6924B]/20 bg-white p-5 shadow-sm"
+                >
+
+                  {/* CLIENTE */}
+
+                  <div className="flex items-start justify-between gap-3">
+
+                    <div className="min-w-0">
+
+                      <p className="truncate font-semibold">
+                        {order.customer || "Vendita diretta"}
+                      </p>
+
+                      <p className="mt-1 text-xs text-neutral-500">
+
+                        {formatDate(order.order_date)}
+
+                        {order.payment_method
+                          ? ` · ${order.payment_method}`
+                          : ""}
+
+                      </p>
+
+                    </div>
+
+                    <span className="shrink-0 rounded-full bg-[#C6924B]/15 px-3 py-1.5 text-[10px] font-semibold text-[#9A682A]">
+                      IN ATTESA
+                    </span>
+
+                  </div>
+
+                  {/* PRODOTTI */}
+
+                  {order.order_items.length > 0 && (
+
+                    <div className="mt-4 space-y-2 border-t border-black/5 pt-4">
+
+                      {order.order_items.map((item) => {
+
+                        const lineTotal =
+                          Number(item.quantity) *
+                          Number(item.unit_price);
+
+                        return (
+
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-3 text-sm"
+                          >
+
+                            <span className="min-w-0 text-neutral-600">
+
+                              <span className="font-medium text-[#27231F]">
+                                {item.quantity} ×
+                              </span>{" "}
+
+                              {item.product_name}
+
+                              {item.variant
+                                ? ` ${item.variant}`
+                                : ""}
+
+                            </span>
+
+                            <span className="shrink-0 text-neutral-500">
+                              €{lineTotal.toFixed(2)}
+                            </span>
+
+                          </div>
+
+                        );
+                      })}
+
+                    </div>
+
+                  )}
+
+                  {/* SCONTO */}
+
+                  {Number(
+                    order.discount_percent || 0
+                  ) > 0 && (
+
+                    <div className="mt-4 flex items-center justify-between rounded-[17px] bg-[#F7F3EA] px-4 py-3">
+
+                      <span className="text-xs text-neutral-500">
+                        Sconto applicato
+                      </span>
+
+                      <span className="text-sm font-semibold text-[#722F37]">
+                        −
+                        {Number(
+                          order.discount_percent
+                        ).toFixed(0)}
+                        %
+                      </span>
+
+                    </div>
+
+                  )}
+
+                  {/* TOTALE */}
+
+                  <div className="mt-4 flex items-end justify-between border-t border-black/5 pt-4">
+
+                    <div>
+
+                      <p className="text-xs text-neutral-500">
+                        Da incassare
+                      </p>
+
+                      <p className="mt-1 text-[10px] text-[#A46E2B]">
+                        Non incluso nel fatturato
+                      </p>
+
+                    </div>
+
+                    <p className="text-2xl font-semibold text-[#A46E2B]">
+                      €{Number(order.total || 0).toFixed(2)}
+                    </p>
+
+                  </div>
+
+                  {/* SEGNA COME PAGATO */}
+
+                  <div className="mt-4">
+
+                    <MarkAsPaidButton
+                      orderId={order.id}
+                    />
+
+                  </div>
+
+                  {/* NOTE */}
+
+                  {order.notes && (
+
+                    <div className="mt-4 rounded-2xl bg-[#F7F3EA] p-4">
+
+                      <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+                        Note
+                      </p>
+
+                      <p className="mt-2 text-sm leading-5">
+                        {order.notes}
+                      </p>
+
+                    </div>
+
+                  )}
+
+                </article>
+
+              ))}
+
+            </div>
+
+          </section>
+
+        )}
+
+        {/* ================================================================
+            STORICO GENERALE
+        ================================================================= */}
+
+        {orders.length > 0 && (
+
+          <section className="mt-10">
 
             <div className="mb-4 flex items-end justify-between">
 
@@ -633,7 +811,7 @@ export default async function OrdersPage() {
                 </p>
 
                 <h2 className="mt-1 text-xl font-semibold">
-                  Vendite
+                  Tutte le vendite
                 </h2>
 
               </div>
@@ -662,9 +840,7 @@ export default async function OrdersPage() {
                     "Regalo";
 
                 const orderNet =
-                  calculateNetRevenue(
-                    order
-                  );
+                  calculateNetRevenue(order);
 
                 const orderVat =
                   calculateVat(order);
@@ -708,9 +884,7 @@ export default async function OrdersPage() {
                         {order.payment_method && (
 
                           <p className="mt-1 text-xs text-neutral-400">
-                            {
-                              order.payment_method
-                            }
+                            {order.payment_method}
                           </p>
 
                         )}
@@ -763,15 +937,10 @@ export default async function OrdersPage() {
                               <span className="min-w-0">
 
                                 <span className="font-medium">
-                                  {
-                                    item.quantity
-                                  }{" "}
-                                  ×
+                                  {item.quantity} ×
                                 </span>{" "}
 
-                                {
-                                  item.product_name
-                                }
+                                {item.product_name}
 
                                 {item.variant
                                   ? ` ${item.variant}`
@@ -780,10 +949,7 @@ export default async function OrdersPage() {
                               </span>
 
                               <span className="shrink-0 text-neutral-500">
-                                €
-                                {lineTotal.toFixed(
-                                  2
-                                )}
+                                €{lineTotal.toFixed(2)}
                               </span>
 
                             </div>
@@ -798,8 +964,7 @@ export default async function OrdersPage() {
 
                     {!isGift &&
                       Number(
-                        order.discount_percent ||
-                          0
+                        order.discount_percent || 0
                       ) > 0 && (
 
                         <div className="mt-4 flex items-center justify-between rounded-[17px] bg-[#F7F3EA] px-4 py-3">
@@ -827,15 +992,12 @@ export default async function OrdersPage() {
                       <div className="mt-4 rounded-[17px] bg-[#722F37]/5 px-4 py-3">
 
                         <p className="text-xs font-semibold text-[#722F37]">
-                          Vendita registrata come
-                          regalo
+                          Vendita registrata come regalo
                         </p>
 
                         <p className="mt-1 text-[11px] text-neutral-500">
-                          I prodotti sono stati
-                          rimossi dal magazzino ma
-                          il prezzo di vendita
-                          registrato è €0.
+                          I prodotti sono stati rimossi dal magazzino
+                          ma il prezzo di vendita registrato è €0.
                         </p>
 
                       </div>
@@ -863,8 +1025,7 @@ export default async function OrdersPage() {
                           {isPending && (
 
                             <p className="mt-1 text-[10px] text-[#9A682A]">
-                              Non incluso nel
-                              fatturato
+                              Non incluso nel fatturato
                             </p>
 
                           )}
@@ -888,7 +1049,7 @@ export default async function OrdersPage() {
 
                     </div>
 
-                    {/* DETTAGLIO IVA */}
+                    {/* IVA */}
 
                     {isPaid &&
                       !isGift && (
@@ -902,10 +1063,7 @@ export default async function OrdersPage() {
                             </span>
 
                             <span className="text-sm font-semibold">
-                              €
-                              {orderNet.toFixed(
-                                2
-                              )}
+                              €{orderNet.toFixed(2)}
                             </span>
 
                           </div>
@@ -917,10 +1075,7 @@ export default async function OrdersPage() {
                             </span>
 
                             <span className="text-xs font-medium text-neutral-500">
-                              €
-                              {orderVat.toFixed(
-                                2
-                              )}
+                              €{orderVat.toFixed(2)}
                             </span>
 
                           </div>
@@ -929,9 +1084,7 @@ export default async function OrdersPage() {
 
                       )}
 
-                    {/* ====================================================
-                        SEGNA COME PAGATO
-                    ===================================================== */}
+                    {/* SEGNA COME PAGATO */}
 
                     {isPending && (
 
