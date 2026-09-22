@@ -4,7 +4,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 import MarkAsPaidButton from "@/components/MarkAsPaidButton";
-import DeletePendingOrderButton from "@/components/DeletePendingOrderButton";
+import DeleteOrderButton from "@/components/DeleteOrderButton";
 
 type OrderItem = {
   id: number;
@@ -757,11 +757,15 @@ export default async function OrdersPage() {
 
                   <div className="mt-4 space-y-2">
 
+                    {/* SEGNA COME PAGATO */}
+
                     <MarkAsPaidButton
                       orderId={order.id}
                     />
 
-                    <DeletePendingOrderButton
+                    {/* ELIMINA VENDITA */}
+
+                    <DeleteOrderButton
                       orderId={order.id}
                       orderItems={order.order_items}
                     />
@@ -786,15 +790,15 @@ export default async function OrdersPage() {
 
                   )}
 
-                </article>
+                  </article>
 
-              ))}
+                  ))}
 
-            </div>
+                  </div>
 
-          </section>
+                  </section>
 
-        )}
+                  )}
 
         {/* ================================================================
             STORICO GENERALE
@@ -1086,24 +1090,26 @@ export default async function OrdersPage() {
 
                       )}
 
-                    {/* AZIONI VENDITA IN ATTESA */}
+                    {/* AZIONI */}
 
-                    {isPending && (
+                    <div className="mt-4 space-y-2">
 
-                      <div className="mt-4 space-y-2">
+                      {/* SOLO LE VENDITE IN ATTESA POSSONO ESSERE SEGNATE COME PAGATE */}
 
+                      {isPending && (
                         <MarkAsPaidButton
                           orderId={order.id}
                         />
+                      )}
 
-                        <DeletePendingOrderButton
-                          orderId={order.id}
-                          orderItems={order.order_items}
-                        />
+                      {/* TUTTE LE VENDITE POSSONO ESSERE ELIMINATE */}
 
-                      </div>
+                      <DeleteOrderButton
+                        orderId={order.id}
+                        orderItems={order.order_items}
+                      />
 
-                    )}
+                    </div>
 
                     {/* NOTE */}
 
