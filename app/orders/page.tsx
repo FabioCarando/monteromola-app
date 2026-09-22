@@ -46,7 +46,16 @@ type Order = {
 */
 
 async function getOrders(): Promise<Order[]> {
-  const { data, error } = await supabase
+  /*
+  |--------------------------------------------------------------------------
+  | 1. CARICAMENTO ORDINI
+  |--------------------------------------------------------------------------
+  */
+
+  const {
+    data: ordersData,
+    error: ordersError,
+  } = await supabase
     .from("orders")
     .select(`
       id,
@@ -60,32 +69,216 @@ async function getOrders(): Promise<Order[]> {
       payment_status,
       box_quantity,
       box_cost,
-      notes,
-      order_items (
-        id,
-        product_id,
-        product_name,
-        variant,
-        category,
-        quantity,
-        unit_price
-      )
+      notes
     `)
     .order("order_date", {
       ascending: false,
     });
 
-  if (error) {
+  if (ordersError) {
     console.error(
-      "Errore caricamento ordini:",
-      error
+      "Errore caricamento orders:",
+      ordersError
     );
 
     return [];
   }
 
-  return (data || []) as Order[];
+  /*
+  |--------------------------------------------------------------------------
+  | NESSUN ORDINE
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    !ordersData ||
+    ordersData.length === 0
+  ) {
+    return [];
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | 2. CARICAMENTO PRODOTTI DELLE VENDITE
+  |--------------------------------------------------------------------------
+  */
+
+  const {
+    data: itemsData,
+    error: itemsError,
+  } = await supabase
+    .from("order_items")
+    .select(`
+      id,
+      order_id,
+      product_id,
+      product_name,
+      variant,
+      category,
+      quantity,
+      unit_price
+    `);
+
+  /*
+   * IMPORTANTE:
+   *
+   * Se per qualche motivo order_items
+   * non viene caricato, NON facciamo
+   * sparire anche tutte le vendite.
+   */
+
+  if (itemsError) {
+    console.error(
+      "Errore caricamento order_items:",
+      itemsError
+    );
+
+    return ordersData.map((order) => ({
+      ...order,
+
+      subtotal:
+        order.subtotal !== null
+          ? Number(order.subtotal)
+          : null,
+
+      discount_percent:
+        order.discount_percent !== null
+          ? Number(
+              order.discount_percent
+            )
+          : null,
+
+      total: Number(
+        order.total || 0
+      ),
+
+      box_quantity:
+        order.box_quantity !== null
+          ? Number(
+              order.box_quantity
+            )
+          : null,
+
+      box_cost:
+        order.box_cost !== null
+          ? Number(
+              order.box_cost
+            )
+          : null,
+
+      order_items: [],
+    })) as Order[];
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | 3. UNIONE ORDERS + ORDER_ITEMS
+  |--------------------------------------------------------------------------
+  |
+  | Ogni prodotto contiene order_id.
+  |
+  | Esempio:
+  |
+  | orders:
+  | id = 33
+  |
+  | order_items:
+  | order_id = 33
+  | product_id = giulio
+  |
+  */
+
+  const ordersWithItems =
+    ordersData.map((order) => {
+      const orderItems =
+        (itemsData || [])
+          .filter(
+            (item) =>
+              Number(item.order_id) ===
+              Number(order.id)
+          )
+          .map((item) => ({
+            id: item.id,
+
+            product_id:
+              item.product_id,
+
+            product_name:
+              item.product_name,
+
+            variant:
+              item.variant,
+
+            category:
+              item.category,
+
+            quantity: Number(
+              item.quantity || 0
+            ),
+
+            unit_price: Number(
+              item.unit_price || 0
+            ),
+          }));
+
+      return {
+        ...order,
+
+        /*
+         * Convertiamo i numeric di
+         * Supabase in number JS.
+         */
+
+        subtotal:
+          order.subtotal !== null
+            ? Number(
+                order.subtotal
+              )
+            : null,
+
+        discount_percent:
+          order.discount_percent !== null
+            ? Number(
+                order.discount_percent
+              )
+            : null,
+
+        total: Number(
+          order.total || 0
+        ),
+
+        box_quantity:
+          order.box_quantity !== null
+            ? Number(
+                order.box_quantity
+              )
+            : null,
+
+        box_cost:
+          order.box_cost !== null
+            ? Number(
+                order.box_cost
+              )
+            : null,
+
+        /*
+         * Inseriamo i prodotti
+         * appartenenti alla vendita.
+         */
+
+        order_items:
+          orderItems,
+      };
+    });
+
+  return ordersWithItems as Order[];
 }
+
+/*
+|--------------------------------------------------------------------------
+| FORMATTAZIONE
+|--------------------------------------------------------------------------
+*/
 
 /*
 |--------------------------------------------------------------------------
