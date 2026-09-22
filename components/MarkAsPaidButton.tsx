@@ -13,55 +13,125 @@ export default function MarkAsPaidButton({
 }) {
   const router = useRouter();
 
-  const [saving, setSaving] =
-    useState(false);
+  const [saving, setSaving] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function markAsPaid() {
+    if (saving || completed) {
+      return;
+    }
+
     try {
       setSaving(true);
+      setErrorMessage("");
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("orders")
         .update({
           payment_status: "Pagato",
         })
-        .eq("id", orderId);
+        .eq("id", orderId)
+        .select("id, payment_status")
+        .single();
 
       if (error) {
-        throw error;
+        console.error(
+          "Errore aggiornamento pagamento:",
+          error
+        );
+
+        setErrorMessage(
+          "Non riesco ad aggiornare il pagamento."
+        );
+
+        return;
+      }
+
+      if (
+        !data ||
+        data.payment_status !== "Pagato"
+      ) {
+        console.error(
+          "Pagamento non aggiornato:",
+          data
+        );
+
+        setErrorMessage(
+          "Lo stato non è stato aggiornato."
+        );
+
+        return;
       }
 
       /*
-       * IMPORTANTISSIMO:
-       * qui NON tocchiamo inventory.
+       * IMPORTANTE:
+       * NON tocchiamo inventory.
        *
-       * I prodotti sono già stati scaricati
+       * Il magazzino è già stato scalato
        * quando la vendita è stata creata.
        */
 
+      setCompleted(true);
+
+      /*
+       * Aggiorna i Server Components
+       * della pagina /orders.
+       */
+
       router.refresh();
+
     } catch (error) {
-      console.error(error);
-      alert(
-        "Errore durante l'aggiornamento del pagamento."
+      console.error(
+        "Errore pagamento:",
+        error
       );
+
+      setErrorMessage(
+        "Si è verificato un errore."
+      );
+
     } finally {
       setSaving(false);
     }
   }
 
-  return (
-    <button
-      type="button"
-      onClick={markAsPaid}
-      disabled={saving}
-      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[17px] bg-[#657052] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
-    >
-      <Check size={16} />
+  /*
+   * Feedback immediato mentre
+   * router.refresh() aggiorna la pagina.
+   */
 
-      {saving
-        ? "Aggiornamento..."
-        : "Segna come pagato"}
-    </button>
+  if (completed) {
+    return (
+      <div className="flex w-full items-center justify-center gap-2 rounded-[17px] bg-[#606C38]/10 px-4 py-3 text-sm font-semibold text-[#606C38]">
+        <Check size={16} />
+        Pagato
+      </div>
+    );
+  }
+
+  return (
+    <div>
+
+      <button
+        type="button"
+        onClick={markAsPaid}
+        disabled={saving}
+        className="flex w-full items-center justify-center gap-2 rounded-[17px] bg-[#606C38] px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Check size={16} />
+
+        {saving
+          ? "Aggiornamento..."
+          : "Segna come pagato"}
+      </button>
+
+      {errorMessage && (
+        <p className="mt-2 text-center text-xs font-medium text-red-600">
+          {errorMessage}
+        </p>
+      )}
+
+    </div>
   );
 }

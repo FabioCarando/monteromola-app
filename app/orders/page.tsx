@@ -4,6 +4,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 import MarkAsPaidButton from "@/components/MarkAsPaidButton";
+import DeletePendingOrderButton from "@/components/DeletePendingOrderButton";
 
 type OrderItem = {
   id: number;
@@ -588,8 +589,6 @@ export default async function OrdersPage() {
             className="mt-8 scroll-mt-6"
           >
 
-            {/* HEADER */}
-
             <div className="flex items-end justify-between gap-4">
 
               <div>
@@ -624,8 +623,6 @@ export default async function OrdersPage() {
               </div>
 
             </div>
-
-            {/* LISTA */}
 
             <div className="mt-4 space-y-3">
 
@@ -756,12 +753,17 @@ export default async function OrdersPage() {
 
                   </div>
 
-                  {/* SEGNA COME PAGATO */}
+                  {/* AZIONI */}
 
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-2">
 
                     <MarkAsPaidButton
                       orderId={order.id}
+                    />
+
+                    <DeletePendingOrderButton
+                      orderId={order.id}
+                      orderItems={order.order_items}
                     />
 
                   </div>
@@ -1084,14 +1086,19 @@ export default async function OrdersPage() {
 
                       )}
 
-                    {/* SEGNA COME PAGATO */}
+                    {/* AZIONI VENDITA IN ATTESA */}
 
                     {isPending && (
 
-                      <div className="mt-4">
+                      <div className="mt-4 space-y-2">
 
                         <MarkAsPaidButton
                           orderId={order.id}
+                        />
+
+                        <DeletePendingOrderButton
+                          orderId={order.id}
+                          orderItems={order.order_items}
                         />
 
                       </div>
