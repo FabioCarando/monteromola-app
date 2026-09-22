@@ -151,6 +151,9 @@ export default function NewSalePage() {
   const [paymentMethod, setPaymentMethod] =
     useState("Contanti");
 
+  const [paymentStatus, setPaymentStatus] =
+    useState<"Pagato" | "In attesa di pagamento">("Pagato");
+
   const [notes, setNotes] = useState("");
 
   const [discountPercent, setDiscountPercent] =
@@ -558,7 +561,7 @@ export default function NewSalePage() {
           payment_status:
             isGift
               ? "Regalo"
-              : "Pagato",
+              : paymentStatus,
 
           box_quantity:
             selectedPackaging.reduce(
@@ -674,6 +677,7 @@ export default function NewSalePage() {
     setPaymentMethod("Contanti");
     setNotes("");
     setQuantities({});
+    setPaymentStatus("Pagato");
 
     setDiscountPercent(0);
     setIsGift(false);
@@ -1511,7 +1515,75 @@ export default function NewSalePage() {
           )}
 
         </section>
+        {/* STATO PAGAMENTO */}
 
+        {!isGift && (
+          <section className="mt-10">
+
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6F2636]">
+              Stato
+            </p>
+
+            <h2 className="monteromola-serif mt-1 text-[29px]">
+              Stato pagamento
+            </h2>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+
+              <button
+                type="button"
+                onClick={() => setPaymentStatus("Pagato")}
+                className={`rounded-[20px] border p-4 text-left transition ${
+                  paymentStatus === "Pagato"
+                    ? "border-[#657052] bg-[#657052] text-white"
+                    : "border-black/[0.06] bg-white text-[#211F1C]"
+                }`}
+              >
+                <p className="text-sm font-semibold">
+                  ✓ Pagato
+                </p>
+
+                <p
+                  className={`mt-1 text-[11px] ${
+                    paymentStatus === "Pagato"
+                      ? "text-white/60"
+                      : "text-[#918B83]"
+                  }`}
+                >
+                  Entra nel fatturato
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPaymentStatus("In attesa di pagamento")
+                }
+                className={`rounded-[20px] border p-4 text-left transition ${
+                  paymentStatus === "In attesa di pagamento"
+                    ? "border-[#C28B45] bg-[#C28B45] text-white"
+                    : "border-black/[0.06] bg-white text-[#211F1C]"
+                }`}
+              >
+                <p className="text-sm font-semibold">
+                  ◷ In attesa
+                </p>
+
+                <p
+                  className={`mt-1 text-[11px] ${
+                    paymentStatus === "In attesa di pagamento"
+                      ? "text-white/70"
+                      : "text-[#918B83]"
+                  }`}
+                >
+                  Non entra nel fatturato
+                </p>
+              </button>
+
+            </div>
+
+          </section>
+        )}
         {/* PAGAMENTO */}
 
         {!isGift && (

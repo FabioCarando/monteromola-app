@@ -1,16 +1,16 @@
-import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
+
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
-import DeleteOrderButton from "@/components/DeleteOrderButton";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import MarkAsPaidButton from "@/components/MarkAsPaidButton";
 
 type OrderItem = {
   id: number;
+  product_id: string | null;
   product_name: string;
   variant: string | null;
+  category: string | null;
   quantity: number;
   unit_price: number;
 };
@@ -18,15 +18,31 @@ type OrderItem = {
 type Order = {
   id: number;
   order_date: string;
+
   customer: string | null;
+
+  subtotal: number | null;
+  discount_percent: number | null;
+  is_gift: boolean | null;
+
   total: number;
+
   payment_method: string | null;
   payment_status: string | null;
-  box_quantity: number;
-  box_cost: number;
+
+  box_quantity: number | null;
+  box_cost: number | null;
+
   notes: string | null;
+
   order_items: OrderItem[];
 };
+
+/*
+|--------------------------------------------------------------------------
+| CARICAMENTO ORDINI
+|--------------------------------------------------------------------------
+*/
 
 async function getOrders(): Promise<Order[]> {
   const { data, error } = await supabase
@@ -35,6 +51,9 @@ async function getOrders(): Promise<Order[]> {
       id,
       order_date,
       customer,
+      subtotal,
+      discount_percent,
+      is_gift,
       total,
       payment_method,
       payment_status,
@@ -43,21 +62,35 @@ async function getOrders(): Promise<Order[]> {
       notes,
       order_items (
         id,
+        product_id,
         product_name,
         variant,
+        category,
         quantity,
         unit_price
       )
     `)
-    .order("order_date", { ascending: false });
+    .order("order_date", {
+      ascending: false,
+    });
 
   if (error) {
-    console.error("Errore caricamento ordini:", error);
+    console.error(
+      "Errore caricamento ordini:",
+      error
+    );
+
     return [];
   }
 
   return (data || []) as Order[];
 }
+
+/*
+|--------------------------------------------------------------------------
+| FORMATTAZIONE
+|--------------------------------------------------------------------------
+*/
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("it-IT", {
@@ -74,421 +107,892 @@ function formatTime(date: string) {
   }).format(new Date(date));
 }
 
+/*
+|--------------------------------------------------------------------------
+| STATO PAGAMENTO
+|--------------------------------------------------------------------------
+*/
+
+function getStatusClasses(
+  status: string | null
+) {
+  if (status === "Pagato") {
+    return "bg-[#606C38]/10 text-[#606C38]";
+  }
+
+  if (
+    status === "In attesa di pagamento"
+  ) {
+    return "bg-[#C6924B]/15 text-[#9A682A]";
+  }
+
+  if (status === "Regalo") {
+    return "bg-[#722F37]/10 text-[#722F37]";
+  }
+
+  return "bg-neutral-100 text-neutral-500";
+}
+
+/*
+|--------------------------------------------------------------------------
+| CALCOLO NETTO IVA
+|--------------------------------------------------------------------------
+|
+| Prezzi di vendita considerati IVA inclusa.
+|
+| Vino  -> IVA 22%
+| Miele -> IVA 10%
+|
+| Netto = lordo / (1 + IVA)
+|
+*/
+
+function calculateNetRevenue(
+  order: Order
+) {
+  /*
+   * Un ordine non pagato NON contribuisce
+   * al guadagno/incasso.
+   */
+
+  if (
+    order.payment_status !== "Pagato"
+  ) {
+    return 0;
+  }
+
+  /*
+   * I regali non generano ricavo.
+   */
+
+  if (order.is_gift) {
+    return 0;
+  }
+
+  /*
+   * Totale prodotti prima dello sconto.
+   */
+
+  let wineGross = 0;
+  let honeyGross = 0;
+  let otherGross = 0;
+
+  for (const item of order.order_items) {
+    const lineTotal =
+      Number(item.quantity) *
+      Number(item.unit_price);
+
+    if (item.category === "wine") {
+      wineGross += lineTotal;
+    } else if (
+      item.category === "honey"
+    ) {
+      honeyGross += lineTotal;
+    } else {
+      /*
+       * Packaging / scatole.
+       * Nessuna IVA specifica viene
+       * applicata qui.
+       */
+      otherGross += lineTotal;
+    }
+  }
+
+  /*
+   * Applichiamo lo sconto anche
+   * alla base imponibile.
+   */
+
+  const discount =
+    Number(
+      order.discount_percent || 0
+    ) / 100;
+
+  const discountFactor =
+    1 - discount;
+
+  wineGross *= discountFactor;
+  honeyGross *= discountFactor;
+  otherGross *= discountFactor;
+
+  /*
+   * Scorporo IVA.
+   */
+
+  const wineNet =
+    wineGross / 1.22;
+
+  const honeyNet =
+    honeyGross / 1.1;
+
+  /*
+   * Per ora packaging resta invariato.
+   */
+
+  return (
+    wineNet +
+    honeyNet +
+    otherGross
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| IVA VENDITA
+|--------------------------------------------------------------------------
+*/
+
+function calculateVat(order: Order) {
+  if (
+    order.payment_status !== "Pagato" ||
+    order.is_gift
+  ) {
+    return 0;
+  }
+
+  const gross =
+    Number(order.total || 0);
+
+  const net =
+    calculateNetRevenue(order);
+
+  return Math.max(gross - net, 0);
+}
+
+/*
+|--------------------------------------------------------------------------
+| PAGINA
+|--------------------------------------------------------------------------
+*/
+
 export default async function OrdersPage() {
   const orders = await getOrders();
 
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.total),
-    0
+  /*
+  |--------------------------------------------------------------------------
+  | ORDINI PAGATI
+  |--------------------------------------------------------------------------
+  */
+
+  const paidOrders = orders.filter(
+    (order) =>
+      order.payment_status === "Pagato" &&
+      !order.is_gift
   );
 
-  const totalProducts = orders.reduce((sum, order) => {
-    const orderProducts = order.order_items.reduce(
-      (itemSum, item) => itemSum + item.quantity,
+  /*
+  |--------------------------------------------------------------------------
+  | ORDINI IN ATTESA
+  |--------------------------------------------------------------------------
+  */
+
+  const pendingOrders = orders.filter(
+    (order) =>
+      order.payment_status ===
+      "In attesa di pagamento"
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | REGALI
+  |--------------------------------------------------------------------------
+  */
+
+  const giftOrders = orders.filter(
+    (order) =>
+      order.is_gift === true ||
+      order.payment_status === "Regalo"
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | FATTURATO LORDO INCASSATO
+  |--------------------------------------------------------------------------
+  |
+  | SOLO PAGATI.
+  |
+  */
+
+  const totalRevenue =
+    paidOrders.reduce(
+      (sum, order) =>
+        sum +
+        Number(order.total || 0),
       0
     );
 
-    return sum + orderProducts;
-  }, 0);
+  /*
+  |--------------------------------------------------------------------------
+  | DA INCASSARE
+  |--------------------------------------------------------------------------
+  */
+
+  const pendingRevenue =
+    pendingOrders.reduce(
+      (sum, order) =>
+        sum +
+        Number(order.total || 0),
+      0
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | GUADAGNO / RICAVO NETTO IVA
+  |--------------------------------------------------------------------------
+  */
+
+  const totalNetRevenue =
+    paidOrders.reduce(
+      (sum, order) =>
+        sum +
+        calculateNetRevenue(order),
+      0
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | IVA COMPLESSIVA
+  |--------------------------------------------------------------------------
+  */
+
+  const totalVat =
+    paidOrders.reduce(
+      (sum, order) =>
+        sum + calculateVat(order),
+      0
+    );
 
   return (
-    <main className="min-h-screen bg-[#FCFAF5] text-[#211F1C]">
-      <div className="mx-auto max-w-md px-5 pb-32 pt-7 md:max-w-6xl">
+    <main className="min-h-screen bg-[#F7F3EA] text-[#27231F]">
 
-        {/* HEADER */}
+      <div className="mx-auto max-w-md px-5 pb-32 pt-8">
+
+        {/* ================================================================
+            HEADER
+        ================================================================= */}
+
         <header>
+
           <div className="flex items-center gap-4">
 
-            <div className="relative h-16 w-16 shrink-0">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-white shadow-sm">
+
               <Image
                 src="/logo-monteromola.png"
                 alt="Tenuta Monteromola"
                 fill
                 priority
-                className="object-contain"
+                className="object-contain p-2"
               />
+
             </div>
 
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.23em] text-[#6F2636]">
+            <div>
+
+              <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#722F37]">
                 Tenuta Monteromola
               </p>
 
-              <h1 className="monteromola-serif mt-1 text-[35px] leading-none tracking-[-0.025em]">
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight">
                 Storico vendite
               </h1>
+
             </div>
 
           </div>
 
-          <p className="mt-4 text-sm leading-6 text-[#817B73]">
-            Tutte le vendite registrate dalla Tenuta.
+          <p className="mt-4 text-sm leading-6 text-neutral-500">
+            Vendite, pagamenti e incassi
+            della Tenuta.
           </p>
+
         </header>
 
-        {/* SUMMARY */}
+        {/* ================================================================
+            DASHBOARD ECONOMICA
+        ================================================================= */}
+
         {orders.length > 0 && (
-          <section className="relative mt-7 overflow-hidden rounded-[34px] bg-[#641F30] p-6 text-white shadow-[0_20px_50px_rgba(91,28,42,0.18)]">
 
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">
-              Totale storico
+          <section className="mt-7 overflow-hidden rounded-[30px] bg-[#722F37] p-5 text-white shadow-lg">
+
+            {/* FATTURATO */}
+
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50">
+              Fatturato incassato
             </p>
 
-            <p className="monteromola-serif mt-3 text-[48px] leading-none tracking-[-0.035em]">
-              €{totalRevenue.toFixed(0)}
+            <p className="mt-2 text-[40px] font-semibold leading-none tracking-tight">
+              €
+              {totalRevenue.toFixed(2)}
             </p>
 
-            <div className="mt-8 grid grid-cols-2 gap-3">
+            <p className="mt-2 text-xs text-white/45">
+              Solo vendite pagate
+            </p>
 
-              <div className="rounded-[20px] bg-white/10 p-4">
-                <p className="text-xs text-white/55">
-                  Ordini
-                </p>
+            {/* NETTO IVA */}
 
-                <p className="mt-1 text-2xl font-semibold">
-                  {orders.length}
-                </p>
-              </div>
+            <div className="mt-6 rounded-[22px] border border-white/[0.08] bg-white/[0.09] p-4">
 
-              <div className="rounded-[20px] bg-white/10 p-4">
-                <p className="text-xs text-white/55">
-                  Prodotti
-                </p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+                Ricavo netto IVA
+              </p>
 
-                <p className="mt-1 text-2xl font-semibold">
-                  {totalProducts}
-                </p>
+              <p className="mt-2 text-[28px] font-semibold">
+                €
+                {totalNetRevenue.toFixed(
+                  2
+                )}
+              </p>
+
+              <div className="mt-3 flex items-center justify-between">
+
+                <span className="text-[11px] text-white/45">
+                  IVA compresa negli incassi
+                </span>
+
+                <span className="text-sm font-semibold text-white/70">
+                  €
+                  {totalVat.toFixed(2)}
+                </span>
+
               </div>
 
             </div>
+
+            {/* NUMERI */}
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+
+              <div className="rounded-[20px] border border-white/[0.06] bg-white/[0.08] p-4">
+
+                <p className="text-xs text-white/45">
+                  Vendite pagate
+                </p>
+
+                <p className="mt-1 text-2xl font-semibold">
+                  {paidOrders.length}
+                </p>
+
+              </div>
+
+              <div className="rounded-[20px] border border-white/[0.06] bg-white/[0.08] p-4">
+
+                <p className="text-xs text-white/45">
+                  In attesa
+                </p>
+
+                <p className="mt-1 text-2xl font-semibold">
+                  {pendingOrders.length}
+                </p>
+
+              </div>
+
+            </div>
+
+            {/* DA INCASSARE */}
+
+            {pendingOrders.length > 0 && (
+
+              <div className="mt-3 rounded-[20px] bg-[#C6924B]/30 p-4">
+
+                <div className="flex items-center justify-between">
+
+                  <div>
+
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                      Da incassare
+                    </p>
+
+                    <p className="mt-1 text-xs text-white/45">
+                      Non incluso nel fatturato
+                    </p>
+
+                  </div>
+
+                  <p className="text-xl font-semibold">
+                    €
+                    {pendingRevenue.toFixed(
+                      2
+                    )}
+                  </p>
+
+                </div>
+
+              </div>
+
+            )}
+
+            {/* TOTALI */}
+
+            <div className="mt-5 flex items-center justify-between">
+
+              <div>
+
+                <p className="text-xs text-white/45">
+                  Vendite registrate
+                </p>
+
+                <p className="mt-1 text-xl font-semibold">
+                  {orders.length}
+                </p>
+
+              </div>
+
+              <Link
+                href="/sales/new"
+                className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-medium backdrop-blur active:scale-[0.97]"
+              >
+                + Nuova vendita
+              </Link>
+
+            </div>
+
           </section>
+
         )}
 
-        {/* NUOVA VENDITA */}
-        <Link
-          href="/sales/new"
-          className="mt-5 flex w-full items-center justify-center rounded-[23px] bg-[#211F1C] px-5 py-[17px] font-semibold text-white shadow-sm"
-        >
-          + Registra una vendita
-        </Link>
-        <Link
-          href="/reports"
-          className="mt-3 flex w-full items-center justify-center rounded-[23px] border border-[#6F2636]/15 bg-white px-5 py-[16px] font-semibold text-[#6F2636]"
-        >
-          Report vendite ed Excel
-        </Link>
+        {/* ================================================================
+            REGALI
+        ================================================================= */}
 
-        {/* NESSUN ORDINE */}
+        {giftOrders.length > 0 && (
+
+          <section className="mt-3">
+
+            <div className="flex items-center justify-between rounded-[22px] bg-white p-4 shadow-sm">
+
+              <div>
+
+                <p className="text-sm font-semibold text-[#722F37]">
+                  Regali
+                </p>
+
+                <p className="mt-1 text-xs text-neutral-400">
+                  Prodotti usciti senza
+                  generare fatturato
+                </p>
+
+              </div>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#722F37]/10 text-lg font-semibold text-[#722F37]">
+                {giftOrders.length}
+              </div>
+
+            </div>
+
+          </section>
+
+        )}
+
+        {/* ================================================================
+            NESSUN ORDINE
+        ================================================================= */}
+
         {orders.length === 0 ? (
+
           <section className="mt-8 rounded-[28px] bg-white p-7 text-center shadow-sm">
 
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#6F2636]/10 text-2xl text-[#6F2636]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#722F37]/10 text-2xl text-[#722F37]">
               +
             </div>
 
-            <p className="monteromola-serif mt-5 text-[27px]">
+            <p className="mt-4 text-lg font-semibold">
               Nessuna vendita
             </p>
 
-            <p className="mt-2 text-sm leading-6 text-[#817B73]">
-              Le vendite registrate compariranno qui.
+            <p className="mt-2 text-sm leading-6 text-neutral-500">
+              Le vendite registrate
+              compariranno qui.
             </p>
 
-          </section>
-        ) : (
-          <section className="mt-11">
+            <Link
+              href="/sales/new"
+              className="mt-5 block w-full rounded-2xl bg-[#722F37] px-5 py-4 text-center font-semibold text-white active:scale-[0.98]"
+            >
+              Registra la prima vendita
+            </Link>
 
-            <div className="mb-5 flex items-end justify-between">
+          </section>
+
+        ) : (
+
+          /* ==============================================================
+              STORICO
+          =============================================================== */
+
+          <section className="mt-8">
+
+            <div className="mb-4 flex items-end justify-between">
 
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#99938A]">
-                  Attività
+
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#722F37]">
+                  Storico
                 </p>
 
-                <h2 className="monteromola-serif mt-1 text-[31px]">
+                <h2 className="mt-1 text-xl font-semibold">
                   Vendite
                 </h2>
+
               </div>
 
-              <span className="text-xs text-[#9A948C]">
+              <span className="text-xs text-neutral-400">
                 Più recenti
               </span>
 
             </div>
 
-            {/* CARD MOBILE */}
-            <div className="space-y-4 md:hidden">
+            <div className="space-y-4">
 
-              {orders.map((order) => (
-                <article
-                  key={order.id}
-                  className="rounded-[29px] bg-white p-5 shadow-[0_8px_30px_rgba(30,26,21,0.04)]"
-                >
+              {orders.map((order) => {
 
-                  {/* TOP */}
-                  <div className="flex items-start justify-between gap-4">
+                const isPaid =
+                  order.payment_status ===
+                  "Pagato";
 
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold">
-                        {order.customer || "Vendita diretta"}
-                      </p>
+                const isPending =
+                  order.payment_status ===
+                  "In attesa di pagamento";
 
-                      <p className="mt-1 text-xs text-[#918B83]">
-                        {formatDate(order.order_date)}
-                        {" · "}
-                        {formatTime(order.order_date)}
-                      </p>
+                const isGift =
+                  order.is_gift === true ||
+                  order.payment_status ===
+                    "Regalo";
 
-                      {order.payment_method && (
-                        <p className="mt-1 text-xs text-[#AAA49B]">
-                          {order.payment_method}
+                const orderNet =
+                  calculateNetRevenue(
+                    order
+                  );
+
+                const orderVat =
+                  calculateVat(order);
+
+                return (
+
+                  <article
+                    key={order.id}
+                    className={`rounded-[28px] bg-white p-5 shadow-sm ${
+                      isPending
+                        ? "ring-1 ring-[#C6924B]/25"
+                        : ""
+                    }`}
+                  >
+
+                    {/* TOP */}
+
+                    <div className="flex items-start justify-between gap-4">
+
+                      <div className="min-w-0">
+
+                        <p className="truncate text-base font-semibold">
+                          {order.customer ||
+                            "Vendita diretta"}
                         </p>
-                      )}
-                    </div>
 
-                    <span
-                      className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ${
-                        order.payment_status === "Pagato"
-                          ? "bg-[#657052]/10 text-[#657052]"
-                          : "bg-[#6F2636]/10 text-[#6F2636]"
-                      }`}
-                    >
-                      {order.payment_status || "—"}
-                    </span>
+                        <p className="mt-1 text-xs text-neutral-500">
 
-                  </div>
+                          {formatDate(
+                            order.order_date
+                          )}
 
-                  {/* PRODOTTI */}
-                  <div className="mt-5 space-y-3">
+                          {" · "}
 
-                    {order.order_items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-4 text-sm"
+                          {formatTime(
+                            order.order_date
+                          )}
+
+                        </p>
+
+                        {order.payment_method && (
+
+                          <p className="mt-1 text-xs text-neutral-400">
+                            {
+                              order.payment_method
+                            }
+                          </p>
+
+                        )}
+
+                      </div>
+
+                      {/* BADGE */}
+
+                      <span
+                        className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ${getStatusClasses(
+                          order.payment_status
+                        )}`}
                       >
-                        <span className="min-w-0 text-[#5F5A54]">
-                          <span className="font-semibold text-[#211F1C]">
-                            {item.quantity} ×
-                          </span>{" "}
-                          {item.product_name}
-                          {item.variant
-                            ? ` ${item.variant}`
-                            : ""}
-                        </span>
 
-                        <span className="shrink-0 text-[#89837B]">
-                          €
-                          {(
-                            item.quantity *
-                            item.unit_price
-                          ).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                        {isPaid
+                          ? "✓ Pagato"
+                          : isPending
+                          ? "◷ In attesa"
+                          : isGift
+                          ? "Regalo"
+                          : order.payment_status ||
+                            "—"}
 
-                    {order.box_quantity > 0 && (
-                      <div className="flex items-center justify-between text-sm text-[#918B83]">
-
-                        <span>
-                          {order.box_quantity} × scatola
-                        </span>
-
-                        <span>
-                          €
-                          {(
-                            order.box_quantity *
-                            order.box_cost
-                          ).toFixed(2)}
-                        </span>
-
-                      </div>
-                    )}
-
-                  </div>
-
-                  {/* TOTALE */}
-                  <div className="mt-5 border-t border-black/[0.05] pt-4">
-
-                    <div className="flex items-end justify-between">
-
-                      <span className="text-xs text-[#918B83]">
-                        Totale
-                      </span>
-
-                      <span className="monteromola-serif text-[29px] leading-none">
-                        €{Number(order.total).toFixed(2)}
                       </span>
 
                     </div>
 
-                  </div>
+                    {/* PRODOTTI */}
 
-                  {/* NOTE */}
-                  {order.notes && (
-                    <div className="mt-4 rounded-[19px] bg-[#F5F1E9] p-4">
+                    <div className="mt-5 space-y-3">
 
-                      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#AAA49B]">
-                        Note
-                      </p>
+                      {order.order_items.map(
+                        (item) => {
 
-                      <p className="mt-2 text-sm leading-5 text-[#5F5A54]">
-                        {order.notes}
-                      </p>
+                          const lineTotal =
+                            Number(
+                              item.quantity
+                            ) *
+                            Number(
+                              item.unit_price
+                            );
 
-                    </div>
-                  )}
+                          return (
 
-                  {/* ELIMINA */}
-                  <div className="mt-4 flex justify-end">
-                    <DeleteOrderButton orderId={order.id} />
-                  </div>
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between gap-4 text-sm"
+                            >
 
-                </article>
-              ))}
+                              <span className="min-w-0">
 
-            </div>
+                                <span className="font-medium">
+                                  {
+                                    item.quantity
+                                  }{" "}
+                                  ×
+                                </span>{" "}
 
-            {/* TABELLA DESKTOP */}
-            <div className="hidden overflow-hidden rounded-[28px] bg-white shadow-sm md:block">
+                                {
+                                  item.product_name
+                                }
 
-              <div className="overflow-x-auto">
-
-                <table className="min-w-full text-left text-sm">
-
-                  <thead className="border-b border-black/[0.05] bg-[#F3EFE7]">
-
-                    <tr>
-                      <th className="px-5 py-4 font-semibold">
-                        Data
-                      </th>
-
-                      <th className="px-5 py-4 font-semibold">
-                        Cliente
-                      </th>
-
-                      <th className="px-5 py-4 font-semibold">
-                        Prodotti
-                      </th>
-
-                      <th className="px-5 py-4 font-semibold">
-                        Pagamento
-                      </th>
-
-                      <th className="px-5 py-4 font-semibold">
-                        Stato
-                      </th>
-
-                      <th className="px-5 py-4 text-right font-semibold">
-                        Totale
-                      </th>
-
-                      <th className="px-5 py-4 text-right font-semibold">
-                        Azioni
-                      </th>
-                    </tr>
-
-                  </thead>
-
-                  <tbody>
-
-                    {orders.map((order) => (
-                      <tr
-                        key={`table-${order.id}`}
-                        className="border-b border-black/[0.045] last:border-0"
-                      >
-
-                        <td className="whitespace-nowrap px-5 py-4 text-[#817B73]">
-                          {formatDate(order.order_date)}
-                        </td>
-
-                        <td className="px-5 py-4 font-semibold">
-                          {order.customer || "Vendita diretta"}
-                        </td>
-
-                        <td className="px-5 py-4">
-
-                          <div className="space-y-1">
-
-                            {order.order_items.map((item) => (
-                              <div key={`desktop-${item.id}`}>
-                                {item.quantity} × {item.product_name}
                                 {item.variant
                                   ? ` ${item.variant}`
                                   : ""}
-                              </div>
-                            ))}
 
-                            {order.box_quantity > 0 && (
-                              <div className="text-[#9A948C]">
-                                {order.box_quantity} × scatola
-                              </div>
-                            )}
+                              </span>
+
+                              <span className="shrink-0 text-neutral-500">
+                                €
+                                {lineTotal.toFixed(
+                                  2
+                                )}
+                              </span>
+
+                            </div>
+
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                    {/* SCONTO */}
+
+                    {!isGift &&
+                      Number(
+                        order.discount_percent ||
+                          0
+                      ) > 0 && (
+
+                        <div className="mt-4 flex items-center justify-between rounded-[17px] bg-[#F7F3EA] px-4 py-3">
+
+                          <span className="text-xs text-neutral-500">
+                            Sconto
+                          </span>
+
+                          <span className="text-sm font-semibold text-[#722F37]">
+                            −
+                            {Number(
+                              order.discount_percent
+                            ).toFixed(0)}
+                            %
+                          </span>
+
+                        </div>
+
+                      )}
+
+                    {/* REGALO */}
+
+                    {isGift && (
+
+                      <div className="mt-4 rounded-[17px] bg-[#722F37]/5 px-4 py-3">
+
+                        <p className="text-xs font-semibold text-[#722F37]">
+                          Vendita registrata come
+                          regalo
+                        </p>
+
+                        <p className="mt-1 text-[11px] text-neutral-500">
+                          I prodotti sono stati
+                          rimossi dal magazzino ma
+                          il prezzo di vendita
+                          registrato è €0.
+                        </p>
+
+                      </div>
+
+                    )}
+
+                    {/* TOTALE */}
+
+                    <div className="mt-5 border-t border-black/5 pt-4">
+
+                      <div className="flex items-end justify-between">
+
+                        <div>
+
+                          <span className="text-sm text-neutral-500">
+
+                            {isGift
+                              ? "Prezzo registrato"
+                              : isPending
+                              ? "Da incassare"
+                              : "Totale"}
+
+                          </span>
+
+                          {isPending && (
+
+                            <p className="mt-1 text-[10px] text-[#9A682A]">
+                              Non incluso nel
+                              fatturato
+                            </p>
+
+                          )}
+
+                        </div>
+
+                        <span
+                          className={`text-2xl font-semibold tracking-tight ${
+                            isPending
+                              ? "text-[#9A682A]"
+                              : ""
+                          }`}
+                        >
+                          €
+                          {Number(
+                            order.total || 0
+                          ).toFixed(2)}
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                    {/* DETTAGLIO IVA */}
+
+                    {isPaid &&
+                      !isGift && (
+
+                        <div className="mt-4 rounded-[18px] bg-[#F7F3EA] p-4">
+
+                          <div className="flex items-center justify-between">
+
+                            <span className="text-xs text-neutral-500">
+                              Ricavo netto IVA
+                            </span>
+
+                            <span className="text-sm font-semibold">
+                              €
+                              {orderNet.toFixed(
+                                2
+                              )}
+                            </span>
 
                           </div>
 
-                        </td>
+                          <div className="mt-2 flex items-center justify-between">
 
-                        <td className="px-5 py-4">
-                          {order.payment_method || "—"}
-                        </td>
+                            <span className="text-xs text-neutral-400">
+                              IVA
+                            </span>
 
-                        <td className="px-5 py-4">
+                            <span className="text-xs font-medium text-neutral-500">
+                              €
+                              {orderVat.toFixed(
+                                2
+                              )}
+                            </span>
 
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              order.payment_status === "Pagato"
-                                ? "bg-[#657052]/10 text-[#657052]"
-                                : "bg-[#6F2636]/10 text-[#6F2636]"
-                            }`}
-                          >
-                            {order.payment_status || "—"}
-                          </span>
+                          </div>
 
-                        </td>
+                        </div>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-right text-base font-semibold">
-                          €{Number(order.total).toFixed(2)}
-                        </td>
+                      )}
 
-                        <td className="px-5 py-4 text-right">
-                          <DeleteOrderButton orderId={order.id} />
-                        </td>
+                    {/* ====================================================
+                        SEGNA COME PAGATO
+                    ===================================================== */}
 
-                      </tr>
-                    ))}
+                    {isPending && (
 
-                  </tbody>
+                      <div className="mt-4">
 
-                </table>
+                        <MarkAsPaidButton
+                          orderId={order.id}
+                        />
 
-              </div>
+                      </div>
+
+                    )}
+
+                    {/* NOTE */}
+
+                    {order.notes && (
+
+                      <div className="mt-4 rounded-2xl bg-[#F7F3EA] p-4">
+
+                        <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+                          Note
+                        </p>
+
+                        <p className="mt-2 text-sm leading-5">
+                          {order.notes}
+                        </p>
+
+                      </div>
+
+                    )}
+
+                  </article>
+
+                );
+              })}
 
             </div>
 
           </section>
+
         )}
 
-        {/* FOOTER */}
-        <footer className="pb-8 pt-14 text-center">
+        {/* ================================================================
+            CTA
+        ================================================================= */}
 
-          <div className="relative mx-auto h-11 w-11 opacity-30">
-            <Image
-              src="/logo-monteromola.png"
-              alt="Monteromola"
-              fill
-              className="object-contain"
-            />
-          </div>
+        {orders.length > 0 && (
 
-          <p className="monteromola-serif mt-3 text-lg text-[#AAA49B]">
-            Monteromola
-          </p>
+          <Link
+            href="/sales/new"
+            className="mt-8 block w-full rounded-[22px] bg-[#27231F] px-5 py-4 text-center font-semibold text-white shadow-sm active:scale-[0.98]"
+          >
+            + Registra una vendita
+          </Link>
 
-        </footer>
+        )}
 
       </div>
 
       <BottomNav />
+
     </main>
   );
 }

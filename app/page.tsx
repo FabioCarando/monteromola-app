@@ -27,6 +27,8 @@ type Order = {
   order_date: string;
   customer: string | null;
   payment_method: string | null;
+  payment_status: string | null;
+  is_gift: boolean | null;
   order_items: OrderItem[];
 };
 
@@ -88,6 +90,8 @@ export default async function HomePage() {
         order_date,
         customer,
         payment_method,
+        payment_status,
+        is_gift,
         order_items (
           quantity
         )
@@ -113,7 +117,10 @@ export default async function HomePage() {
 
   const { data: previousMonthData } = await supabase
     .from("orders")
-    .select("total")
+    .select(`total,
+      payment_status,
+      is_gift
+    `)
     .gte("order_date", startOfPreviousMonth)
     .lt("order_date", startOfMonth);
 
@@ -154,32 +161,96 @@ export default async function HomePage() {
     return Number(item?.price || 0);
   }
 
-  /*
-   * KPI VENDITE
-   */
+    /*
+  * KPI VENDITE
+  *
+  * Il fatturato considera esclusivamente
+  * le vendite effettivamente pagate.
+  *
+  * Le vendite "In attesa di pagamento"
+  * restano nello storico ma non entrano
+  * nel fatturato.
+  *
+  * I regali non generano fatturato.
+  */
 
-  const monthRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.total || 0),
+  const paidOrders = orders.filter(
+    (order) =>
+      order.payment_status === "Pagato" &&
+      order.is_gift !== true
+  );
+
+  const pendingOrders = orders.filter(
+    (order) =>
+      order.payment_status ===
+        "In attesa di pagamento" &&
+      order.is_gift !== true
+  );
+
+  /*
+  * FATTURATO INCASSATO DEL MESE
+  */
+
+  const monthRevenue = paidOrders.reduce(
+    (sum, order) =>
+      sum + Number(order.total || 0),
     0
   );
 
-  const monthOrders = orders.length;
+  /*
+  * NUMERO VENDITE PAGATE
+  */
+
+  const monthOrders = paidOrders.length;
+
+  /*
+  * MEDIA DELLE VENDITE PAGATE
+  */
 
   const averageOrder =
     monthOrders > 0
       ? monthRevenue / monthOrders
       : 0;
 
-  const previousMonthRevenue = (
-    previousMonthData || []
-  ).reduce(
-    (sum, order) => sum + Number(order.total || 0),
+  /*
+  * IMPORTO ANCORA DA INCASSARE
+  */
+
+  const pendingRevenue = pendingOrders.reduce(
+    (sum, order) =>
+      sum + Number(order.total || 0),
     0
   );
 
+  /*
+  * FATTURATO MESE PRECEDENTE
+  *
+  * Anche qui contiamo esclusivamente
+  * gli ordini pagati.
+  */
+
+  const previousMonthRevenue = (
+    previousMonthData || []
+  )
+    .filter(
+      (order) =>
+        order.payment_status === "Pagato" &&
+        order.is_gift !== true
+    )
+    .reduce(
+      (sum, order) =>
+        sum + Number(order.total || 0),
+      0
+    );
+
+  /*
+  * VARIAZIONE %
+  */
+
   const revenueChange =
     previousMonthRevenue > 0
-      ? ((monthRevenue - previousMonthRevenue) /
+      ? ((monthRevenue -
+          previousMonthRevenue) /
           previousMonthRevenue) *
         100
       : null;
@@ -423,7 +494,35 @@ export default async function HomePage() {
             </div>
 
           </div>
+          {pendingOrders.length > 0 && (
+            <Link
+              href="/orders"
+              className="mt-3 flex items-center justify-between rounded-[20px] border border-[#E8C98E]/15 bg-[#E8C98E]/10 p-4"
+            >
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#E8C98E]">
+                  Da incassare
+                </p>
 
+                <p className="mt-1 text-xs text-white/45">
+                  {pendingOrders.length}{" "}
+                  {pendingOrders.length === 1
+                    ? "vendita in attesa"
+                    : "vendite in attesa"}
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p className="text-xl font-semibold text-[#F1D8A7]">
+                  €{pendingRevenue.toFixed(2)}
+                </p>
+
+                <p className="mt-1 text-[10px] text-white/35">
+                  Vedi pagamenti →
+                </p>
+              </div>
+            </Link>
+          )}
           <div className="mt-5 flex items-center justify-between">
 
             <p className="text-[11px] text-white/35">
