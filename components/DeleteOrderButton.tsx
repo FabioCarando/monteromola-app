@@ -26,17 +26,14 @@ export default function DeleteOrderButton({
 }: Props) {
   const router = useRouter();
 
-  const [deleting, setDeleting] =
-    useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const [errorMessage, setErrorMessage] =
-    useState("");
-
-  const deleteOrder = async () => {
+  async function deleteOrder() {
     if (deleting) return;
 
     const confirmed = window.confirm(
-      "Vuoi davvero cancellare questa vendita? I prodotti verranno rimessi in magazzino."
+      "Vuoi davvero eliminare questa vendita? I prodotti verranno rimessi in magazzino."
     );
 
     if (!confirmed) return;
@@ -46,21 +43,20 @@ export default function DeleteOrderButton({
       setErrorMessage("");
 
       /*
-       * 1. Controlliamo che la vendita
-       * esista ancora.
+       * 1. VERIFICA ORDINE
        */
 
       const {
         data: existingOrder,
-        error: readError,
+        error: orderError,
       } = await supabase
         .from("orders")
-        .select("id, payment_status")
+        .select("id")
         .eq("id", orderId)
         .single();
 
-      if (readError) {
-        throw readError;
+      if (orderError) {
+        throw orderError;
       }
 
       if (!existingOrder) {
@@ -72,31 +68,30 @@ export default function DeleteOrderButton({
       /*
        * 2. RIPRISTINO MAGAZZINO
        *
-       * Recuperiamo ogni prodotto
-       * nell'inventory e aggiungiamo
-       * nuovamente la quantità venduta.
+       * Usiamo product_id.
+       *
+       * Esempio:
+       * order_items -> giulio
+       * inventory   -> giulio
        */
 
       for (const item of orderItems) {
-        const productName =
-          item.product_name;
-
-        const variant =
-          item.variant || "";
+        if (!item.product_id) {
+          throw new Error(
+            `Product ID mancante per ${item.product_name}.`
+          );
+        }
 
         const quantityToRestore =
           Number(item.quantity || 0);
 
-        if (
-          !productName ||
-          quantityToRestore <= 0
-        ) {
+        if (quantityToRestore <= 0) {
           continue;
         }
 
         /*
-         * Cerchiamo il prodotto
-         * nell'inventory.
+         * Recuperiamo la riga inventory
+         * tramite PRODUCT_ID.
          */
 
         const {
@@ -104,54 +99,53 @@ export default function DeleteOrderButton({
           error: inventoryReadError,
         } = await supabase
           .from("inventory")
-          .select("*")
-          .eq(
-            "product_name",
-            productName
+          .select(
+            "id, product_id, product_name, quantity"
           )
           .eq(
-            "variant",
-            variant
+            "product_id",
+            item.product_id
           )
-          .maybeSingle();
+          .single();
 
         if (inventoryReadError) {
           console.error(
-            "Errore lettura inventory:",
+            "Errore ricerca inventory:",
             inventoryReadError
           );
 
           throw new Error(
-            `Errore durante il ripristino di ${productName}.`
+            `Prodotto "${item.product_name}" non trovato in magazzino.`
           );
         }
 
         /*
-         * Se non troviamo il prodotto,
-         * blocchiamo l'eliminazione.
+         * Quantità attuale.
          *
-         * Meglio non cancellare la vendita
-         * piuttosto che perdere lo stock.
+         * Nel tuo esempio:
+         * Giulio = 138
          */
-
-        if (!inventoryItem) {
-          throw new Error(
-            `Prodotto "${productName}" non trovato in magazzino.`
-          );
-        }
 
         const currentQuantity =
           Number(
             inventoryItem.quantity || 0
           );
 
+        /*
+         * Ripristiniamo la quantità
+         * della vendita eliminata.
+         *
+         * Esempio:
+         *
+         * 138 + 1 = 139
+         */
+
         const newQuantity =
           currentQuantity +
           quantityToRestore;
 
         /*
-         * Aggiorniamo quella specifica
-         * riga dell'inventory.
+         * Aggiornamento inventory.
          */
 
         const {
@@ -161,25 +155,25 @@ export default function DeleteOrderButton({
           .update({
             quantity: newQuantity,
           })
-          .eq("id", inventoryItem.id);
+          .eq(
+            "id",
+            inventoryItem.id
+          );
 
         if (inventoryUpdateError) {
           console.error(
-            "Errore aggiornamento inventory:",
+            "Errore aggiornamento magazzino:",
             inventoryUpdateError
           );
 
           throw new Error(
-            `Non riesco a ripristinare ${productName}.`
+            `Non riesco a ripristinare ${item.product_name} nel magazzino.`
           );
         }
       }
 
       /*
-       * 3. Eliminiamo gli order_items.
-       *
-       * Lo facciamo esplicitamente
-       * prima dell'ordine.
+       * 3. ELIMINA ORDER_ITEMS
        */
 
       const {
@@ -187,7 +181,10 @@ export default function DeleteOrderButton({
       } = await supabase
         .from("order_items")
         .delete()
-        .eq("order_id", orderId);
+        .eq(
+          "order_id",
+          orderId
+        );
 
       if (itemsDeleteError) {
         console.error(
@@ -201,7 +198,7 @@ export default function DeleteOrderButton({
       }
 
       /*
-       * 4. Eliminiamo la vendita.
+       * 4. ELIMINA ORDINE
        */
 
       const {
@@ -209,7 +206,10 @@ export default function DeleteOrderButton({
       } = await supabase
         .from("orders")
         .delete()
-        .eq("id", orderId);
+        .eq(
+          "id",
+          orderId
+        );
 
       if (orderDeleteError) {
         console.error(
@@ -223,28 +223,27 @@ export default function DeleteOrderButton({
       }
 
       /*
-       * 5. Aggiorniamo lo storico.
+       * 5. REFRESH
        */
 
       router.refresh();
 
     } catch (error) {
       console.error(
-        "Errore cancellazione:",
+        "Errore cancellazione vendita:",
         error
       );
 
-      const message =
+      setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Non è stato possibile cancellare la vendita.";
-
-      setErrorMessage(message);
+          : "Non è stato possibile eliminare la vendita."
+      );
 
     } finally {
       setDeleting(false);
     }
-  };
+  }
 
   return (
     <div>
