@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 import MarkAsPaidButton from "@/components/MarkAsPaidButton";
 import DeleteOrderButton from "@/components/DeleteOrderButton";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type OrderItem = {
   id: number;
