@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tenuta Monteromola
 
-## Getting Started
+A lightweight sales, inventory and performance management application built for **Tenuta Monteromola**, a small Italian producer of wine and honey.
 
-First, run the development server:
+The application provides a simple mobile-first interface for managing daily sales, stock, prices and business performance.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+![Tenuta Monteromola App](public/github-preview.png)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Sales registration
+- Historical sales tracking
+- Custom sale dates
+- Paid and pending payment management
+- Gift orders
+- Percentage discounts
+- Automatic inventory updates
+- Editable product prices
+- Wine, honey and packaging management
+- Monthly revenue monitoring
+- Sales performance analytics
+- Product ranking
+- Mobile-first interface
+- PWA support
 
-## Learn More
+## Products
 
-To learn more about Next.js, take a look at the following resources:
+The application currently manages:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Wine**
+- Onelia
+- Giulio
+- Gea
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Honey**
+- Acacia — 250g / 500g
+- Millefiori — 250g / 500g
+- Melata — 250g / 500g
 
-## Deploy on Vercel
+**Packaging**
+- 3 wine box formats
+- 2 honey box formats
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Products, prices and inventory levels are managed directly from the application.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Sales Management
+
+Each sale can include multiple products and packaging options.
+
+The system supports:
+
+- Customer information
+- Custom sale date
+- Payment method
+- Paid / pending payment status
+- Percentage discounts
+- Gift orders
+- Notes
+
+Pending orders immediately reduce inventory but are excluded from revenue until payment is confirmed.
+
+## Inventory
+
+Inventory quantities are automatically updated whenever a sale is registered.
+
+When a sale is deleted, the corresponding quantities are restored to inventory.
+
+This keeps stock levels synchronized with the sales history.
+
+## Analytics
+
+The application provides a simple overview of business performance, including:
+
+- Monthly revenue
+- Number of sales
+- Average order value
+- Month-over-month comparison
+- Best-selling products
+- Sales trends
+
+## Tech Stack
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- Supabase
+- PostgreSQL
+- Vercel
+- Lucide Icons
+
+## Architecture
+
+```text
+Next.js / React
+      │
+      ├── Sales
+      ├── Orders
+      ├── Inventory
+      ├── Prices
+      └── Analytics
+              │
+              ▼
+           Supabase
+              │
+              ▼
+          PostgreSQL
