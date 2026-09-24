@@ -4,7 +4,7 @@ A lightweight sales, inventory and performance management application built for 
 
 The application provides a simple mobile-first interface for managing daily sales, stock, prices and business performance.
 
-![Tenuta Monteromola App](public/github-preview.png)
+![Tenuta Monteromola App](./public/github-preview.png)
 
 
 ## Features
