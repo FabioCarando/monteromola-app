@@ -160,6 +160,7 @@ export default function NewSalePage() {
     useState(0);
 
   const [isGift, setIsGift] = useState(false);
+  const [receiptIssued, setReceiptIssued] = useState(false);
   const today = new Date().toLocaleDateString("en-CA");
   const [saleDate, setSaleDate] = useState(today);
   const [quantities, setQuantities] = useState<
@@ -546,6 +547,7 @@ export default function NewSalePage() {
               : discountPercent,
 
           is_gift: isGift,
+          receipt_issued: receiptIssued,
 
           /*
            * Incasso effettivo.
@@ -681,6 +683,7 @@ export default function NewSalePage() {
 
     setDiscountPercent(0);
     setIsGift(false);
+    setReceiptIssued(false);
 
     setSaleDate(today);
 
@@ -1627,6 +1630,31 @@ export default function NewSalePage() {
           </section>
         )}
 
+        {/* STATO SCONTRINO */}
+
+        <section className="mt-8">
+          <h2 className="monteromola-serif text-[29px]">Stato scontrino</h2>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={receiptIssued}
+            aria-label="Scontrino effettuato"
+            disabled={saving}
+            onClick={() => setReceiptIssued((issued) => !issued)}
+            className="mt-3 flex min-h-16 w-full items-center justify-between gap-3 rounded-[24px] bg-white p-5 text-left shadow-[0_8px_30px_rgba(30,26,21,0.04)] disabled:opacity-50"
+          >
+            <span>
+              <span className="block text-sm font-semibold">Scontrino effettuato</span>
+              <span className="mt-1 block text-xs text-[#918B83]">
+                {receiptIssued ? "Scontrino fatto" : "Scontrino da fare"}
+              </span>
+            </span>
+            <span aria-hidden="true" className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition ${receiptIssued ? "justify-end bg-[#657052]" : "justify-start bg-[#E8E3DC]"}`}>
+              <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+            </span>
+          </button>
+        </section>
+
         {/* NOTE */}
 
         <section className="mt-8">
@@ -1652,7 +1680,7 @@ export default function NewSalePage() {
         {/* ERRORI */}
 
         {errorMessage && (
-          <div className="mt-6 rounded-[18px] bg-red-50 p-4 text-sm text-red-600">
+          <div role="alert" className="mt-6 rounded-[18px] bg-red-50 p-4 text-sm text-red-600">
             {errorMessage}
           </div>
         )}

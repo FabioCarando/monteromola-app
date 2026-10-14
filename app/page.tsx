@@ -57,6 +57,15 @@ function formatPrice(value: number) {
 }
 
 export default async function HomePage() {
+  const { count: pendingReceipts, error: receiptsError } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .or("receipt_issued.eq.false,receipt_issued.is.null");
+
+  if (receiptsError) {
+    console.error("Errore caricamento scontrini:", receiptsError);
+  }
+
   /*
    * DATE
    */
@@ -563,6 +572,24 @@ export default async function HomePage() {
       </section>
 
       {/* ANDAMENTO VENDITE */}
+
+      <Link
+        href="/orders#sales"
+        className="mx-5 mt-4 flex min-h-20 items-center justify-between gap-4 rounded-[26px] bg-white p-5 shadow-[0_8px_30px_rgba(30,26,21,0.04)] transition active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-3">
+          <ReceiptText size={22} className="shrink-0 text-[#6F2636]" />
+          <div>
+            <p className="text-sm font-semibold">Scontrini da fare</p>
+            <p className="mt-1 text-xs text-[#817B73]">
+              {receiptsError ? "Conteggio non disponibile. Riprova." : "Tutte le vendite · Gestisci nello storico"}
+            </p>
+          </div>
+        </div>
+        <span className="text-2xl font-semibold text-[#6F2636]">
+          {receiptsError ? "—" : pendingReceipts ?? 0}
+        </span>
+      </Link>
 
       <Link
         href="/performance"

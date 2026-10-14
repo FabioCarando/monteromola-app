@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 import MarkAsPaidButton from "@/components/MarkAsPaidButton";
 import DeleteOrderButton from "@/components/DeleteOrderButton";
+import ReceiptStatusButton from "@/components/ReceiptStatusButton";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -27,6 +28,7 @@ type Order = {
   subtotal: number | null;
   discount_percent: number | null;
   is_gift: boolean | null;
+  receipt_issued: boolean | null;
 
   total: number;
 
@@ -66,6 +68,7 @@ async function getOrders(): Promise<Order[]> {
       subtotal,
       discount_percent,
       is_gift,
+      receipt_issued,
       total,
       payment_method,
       payment_status,
@@ -958,6 +961,12 @@ export default async function OrdersPage() {
                       orderId={order.id}
                     />
 
+                    <ReceiptStatusButton
+                      key={`${order.id}-${order.receipt_issued}`}
+                      orderId={order.id}
+                      receiptIssued={order.receipt_issued === true}
+                    />
+
                     {/* ELIMINA VENDITA */}
 
                     <DeleteOrderButton
@@ -1001,7 +1010,7 @@ export default async function OrdersPage() {
 
         {orders.length > 0 && (
 
-          <section className="mt-10">
+          <section id="sales" className="mt-10 scroll-mt-5">
 
             <div className="mb-4 flex items-end justify-between">
 
@@ -1298,6 +1307,12 @@ export default async function OrdersPage() {
                       )}
 
                       {/* TUTTE LE VENDITE POSSONO ESSERE ELIMINATE */}
+
+                      <ReceiptStatusButton
+                        key={`${order.id}-${order.receipt_issued}`}
+                        orderId={order.id}
+                        receiptIssued={order.receipt_issued === true}
+                      />
 
                       <DeleteOrderButton
                         orderId={order.id}
